@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
 using Amazon.DynamoDBv2.DocumentModel;
+using System.Drawing;
 
 namespace CustomRegionPOC.Service
 {
@@ -27,7 +28,7 @@ namespace CustomRegionPOC.Service
             var credentials = new BasicAWSCredentials(configuration["AWS:AccessKey"], configuration["AWS:SecretKey"]);
             this.dynamoDBClient = new AmazonDynamoDBClient(credentials, RegionEndpoint.USEast1);
 
-            CreateTempTable("tile").Wait();
+            createTempTable("tile").Wait();
 
             context = new DynamoDBContext(this.dynamoDBClient);
         }
@@ -36,13 +37,17 @@ namespace CustomRegionPOC.Service
         {
             DynamoDBContext context = new DynamoDBContext(this.dynamoDBClient);
 
-            region.Tiles = generateTiles(region.Points);
+            List<Tuple<PointF, PointF>> tuples = generateTileTuples(region.Points);
 
-            List<Region> regions = this.transformRegion(region);
+            List<Region> regions = this.transformRegion(region, this.rasterize(tuples));
 
-            Parallel.ForEach(regions, item =>
+            var chunkRegion = regions.ChunkBy<Region>(200);
+
+            Parallel.ForEach(chunkRegion, item =>
             {
-                context.SaveAsync<Region>(item);
+                var bulkInsert = context.CreateBatchWrite<Region>();
+                bulkInsert.AddPutItems(item);
+                bulkInsert.ExecuteAsync();
             });
         }
 
@@ -83,14 +88,41 @@ namespace CustomRegionPOC.Service
                     Name = region.Name,
                     Points = region.Points,
                     LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
-                    CreateDate = DateTime.UtcNow
+                    Tiles = region.Tiles,
+                    CreateDate = DateTime.UtcNow,
                 });
             }
 
             return regions;
         }
 
-        private async Task CreateTempTable(string tableName)
+        public List<Region> transformRegion(Region region, List<Point> tiles)
+        {
+            List<Region> regions = new List<Region>();
+
+            List<string> locationPoints = new List<string>();
+            foreach (LocationPoint point in region.Points)
+            {
+                locationPoints.Add(point.Lat + " " + point.Lng);
+            }
+
+            foreach (Point tile in tiles)
+            {
+                regions.Add(new Region
+                {
+                    Tile = "(" + tile.X + "," + tile.Y + ")",
+                    Name = region.Name,
+                    Points = region.Points,
+                    LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
+                    Tiles = region.Tiles,
+                    CreateDate = DateTime.UtcNow,
+                });
+            }
+
+            return regions;
+        }
+
+        private async Task createTempTable(string tableName)
         {
             string hashKey = "Tile";
             string sortKey = "CreateDate";
@@ -123,41 +155,96 @@ namespace CustomRegionPOC.Service
             }
         }
 
-        private List<Tile> generateTiles(List<LocationPoint> points)
-        {
-            List<Tile> actualTiles = new List<Tile>();
-            List<Tile> tiles = new List<Tile>();
+        //private List<Tile> generateTiles(List<LocationPoint> points)
+        //{
+        //    List<Tile> actualTiles = new List<Tile>();
+        //    List<Tile> tiles = new List<Tile>();
 
-            Parallel.ForEach(points, point =>
+        //    Parallel.ForEach(points, point =>
+        //    {
+        //        dynamic coordinates = getCoordinateTile(point.Lat, point.Lng);
+
+        //        List<decimal> bound = new List<decimal>();
+
+        //        actualTiles.Add(new Tile
+        //        {
+        //            Row = (int)coordinates["tileX"],
+        //            Column = (int)coordinates["tileY"],
+        //            Bound1 = coordinates["bound1"],
+        //            Bound2 = coordinates["bound2"],
+        //            Bound3 = coordinates["bound3"],
+        //            Bound4 = coordinates["bound4"],
+        //        });
+        //    });
+
+        //    double diff = actualTiles.First().Bound3 - actualTiles.First().Bound1;
+
+        //    double minBoundX = actualTiles.Min(x => x.Bound1);
+        //    double minBoundY = actualTiles.Min(x => x.Bound3);
+
+        //    int minRow = actualTiles.Min(x => x.Row);
+        //    int maxRow = actualTiles.Max(x => x.Row);
+
+        //    int minColumn = actualTiles.Min(x => x.Column);
+        //    int maxColumn = actualTiles.Max(x => x.Column);
+
+        //    double currentBoundX = minBoundX;
+        //    double currentBoundY = minBoundY;
+
+        //    for (int i = minRow; i <= maxRow; i++)
+        //    {
+        //        for (int j = minColumn; j <= maxColumn; j++)
+        //        {
+        //            Tile tile = new Tile();
+        //            tile.Row = i;
+        //            tile.Column = j;
+        //            tile.Bound1 = currentBoundX;
+        //            tile.Bound3 = currentBoundY;
+
+        //            currentBoundX += diff;
+        //            currentBoundY += diff;
+
+        //            tile.Bound2 = currentBoundX;
+        //            tile.Bound4 = currentBoundY;
+
+        //            tiles.Add(tile);
+        //        }
+        //    }
+
+        //    return tiles;
+        //}
+
+        private List<Tuple<PointF, PointF>> generateTileTuples(List<LocationPoint> points)
+        {
+            List<Tuple<PointF, PointF>> tuple = new List<Tuple<PointF, PointF>>();
+
+            Tile[] actualTiles = new Tile[points.Count()];
+
+            Parallel.ForEach(points, (point, state, index) =>
             {
                 dynamic coordinates = getCoordinateTile(point.Lat, point.Lng);
 
-                actualTiles.Add(new Tile
+                List<decimal> bound = new List<decimal>();
+
+                actualTiles[index] = new Tile
                 {
-                    Row = coordinates["tileX"],
-                    Column = coordinates["tileY"]
-                });
+                    Row = (float)coordinates["tileX"],
+                    Column = (float)coordinates["tileY"],
+                    Bound1 = coordinates["bound1"],
+                    Bound2 = coordinates["bound2"],
+                    Bound3 = coordinates["bound3"],
+                    Bound4 = coordinates["bound4"],
+                };
             });
 
-            int minRow = actualTiles.Min(x => x.Row);
-            int maxRow = actualTiles.Max(x => x.Row);
-
-            int minColumn = actualTiles.Min(x => x.Column);
-            int maxColumn = actualTiles.Max(x => x.Column);
-
-            for (int i = minRow; i <= maxRow; i++)
+            for (int i = 1; i < actualTiles.Count(); i++)
             {
-                for (int j = minColumn; j <= maxColumn; j++)
-                {
-                    tiles.Add(new Tile
-                    {
-                        Row = i,
-                        Column = j
-                    });
-                }
+                tuple.Add(new Tuple<PointF, PointF>(new PointF(actualTiles[i - 1].Row, actualTiles[i - 1].Column), new PointF(actualTiles[i].Row, actualTiles[i].Column)));
             }
 
-            return tiles;
+            tuple.Add(new Tuple<PointF, PointF>(new PointF(actualTiles[actualTiles.Count() - 1].Row, actualTiles[actualTiles.Count() - 1].Column), new PointF(actualTiles[0].Row, actualTiles[0].Column)));
+
+            return tuple;
         }
 
         private dynamic getCoordinateTile(decimal lat, decimal lng, int zoomlevel = 10)
@@ -345,7 +432,11 @@ class MyClass:
 		
 		output = {
 			'tileX' : 0,
-			'tileY' : 0
+			'tileY' : 0,
+			'bound1' : 0,
+			'bound2' : 0,
+			'bound3' : 0,
+			'bound4' : 0
 		}
 		
 		for ty in range(tminy, tmaxy+1):
@@ -354,10 +445,15 @@ class MyClass:
 				print tilefilename, '( TileMapService: z / x / y )'
 			
 				gx, gy = mercator.GoogleTile(tx, ty, tz)
+				bounds = mercator.TileLatLonBounds( tx, ty, tz)
 				
 				output = {
 					'tileX' : gx,
-					'tileY' : gy
+					'tileY' : gy,
+					'bound1' : bounds[0],
+					'bound2' : bounds[1],
+					'bound3' : bounds[2],
+					'bound4' : bounds[3]
 				}
 				
 		return output";
@@ -375,6 +471,12 @@ class MyClass:
                 dynamic instance = ops.CreateInstance(pythonType);
                 var value = instance.go(zoomlevel, lat, lng);
 
+                decimal diffX = ((lat - Convert.ToDecimal(value["bound1"])) / (Convert.ToDecimal(value["bound3"]) - Convert.ToDecimal(value["bound1"])));
+                decimal diffY = ((lng - Convert.ToDecimal(value["bound2"])) / (Convert.ToDecimal(value["bound4"]) - Convert.ToDecimal(value["bound2"])));
+
+                value["tileX"] = value["tileX"] + diffX;
+                value["tileY"] = value["tileY"] + diffY;
+
                 return value;
             }
             catch (Exception ex)
@@ -390,7 +492,7 @@ class MyClass:
             List<Region> region = new List<Region>();
 
             List<ScanCondition> conditions = new List<ScanCondition>();
-            conditions.Add(new ScanCondition("Tile", ScanOperator.Contains, ("(" + coordinates["tileX"] + "," + coordinates["tileY"] + ")")));
+            conditions.Add(new ScanCondition("Tile", ScanOperator.Contains, ("(" + (int)coordinates["tileX"] + "," + (int)coordinates["tileY"] + ")")));
             region = await context.ScanAsync<Region>(conditions).GetRemainingAsync();
 
             return filterRegionList(region, lat, lng);
@@ -437,6 +539,216 @@ class MyClass:
 
             return oddNodes;
         }
+
+        private List<Point> rasterize(List<Tuple<PointF, PointF>> lines)
+        {
+            var list = new List<Point>();
+            var innerList = new List<Point>();
+            Parallel.ForEach(lines, (line) =>
+            {
+                var points = GetPointsOnLine(line.Item1, line.Item2);
+                foreach (var point in points)
+                {
+                    list.Add(point);
+                }
+            });
+
+            var topY = list.Max(x => x.Y);
+            var bottomY = list.Min(x => x.Y);
+            for (int y = bottomY + 1; y < topY; y++)
+            {
+                var edgeCoords = list.Where(i => i.Y == y).ToList();
+                edgeCoords = edgeCoords.OrderBy(x => x.X).ToList();
+                for (int i = 1; i < edgeCoords.Count(); i = i + 2)
+                {
+                    for (int x = edgeCoords.ElementAt(i - 1).X + 1; i < edgeCoords.Last().X; i++)
+                    {
+                        innerList.Add(new Point(x, y));
+                    }
+
+                }
+            }
+            list.AddRange(innerList);
+            list = list.Distinct().ToList();
+
+            return list;
+        }
+
+        private IEnumerable<Point> GetPointsOnLine(PointF initalPoint, PointF finalPoint)
+
+        {
+
+            float x0 = initalPoint.X;
+
+            float y0 = initalPoint.Y;
+
+            float x1 = finalPoint.X;
+
+            float y1 = finalPoint.Y;
+
+
+
+            float dy = Math.Abs(y0 - y1);
+
+            float dx = Math.Abs(x0 - x1);
+
+            bool steep = dy > dx;
+
+            if (steep)
+
+            {
+
+                bool directionDown = y0 > y1;
+
+                float m = dx / dy;
+
+
+
+                //return the point tile as it is
+
+                var initialTile = new Point(Convert.ToInt32(Math.Floor(x0)), Convert.ToInt32(Math.Floor(y0)));
+
+                var finalTile = new Point(Convert.ToInt32(Math.Floor(x1)), Convert.ToInt32(Math.Floor(y1)));
+
+                yield return initialTile;
+
+                if (initialTile == finalTile || initialTile.Y == finalTile.Y + 1)
+
+                {
+
+                    yield return finalTile;
+
+                    yield break;
+
+                }
+
+                float xTemp = directionDown ? (x0 - (y0 % 1) * m) - m : (1 - (y0 % 1)) * m + x0; //x-coordinates for second tile
+
+                if (directionDown)
+
+                {
+
+                    for (int y = initialTile.Y - 1; y > finalTile.Y; y--)
+
+                    {
+
+                        int x = Convert.ToInt32(Math.Floor(xTemp));
+
+                        yield return new Point(x, y);
+
+                        xTemp -= m;
+
+                    }
+
+                }
+
+                else
+
+                {
+
+                    for (int y = initialTile.Y + 1; y < finalTile.Y; y++)
+
+                    {
+
+                        int x = Convert.ToInt32(Math.Floor(xTemp));
+
+                        yield return new Point(x, y);
+
+                        xTemp += m;
+
+                    }
+
+                }
+
+                yield return finalTile;
+
+            }
+
+            else
+
+            {
+
+                bool directionLeft = x0 > x1;
+
+                float m = dy / dx;
+
+
+
+                //return the point tile as it is
+
+                var initialTile = new Point(Convert.ToInt32(Math.Floor(x0)), Convert.ToInt32(Math.Floor(y0)));
+
+                var finalTile = new Point(Convert.ToInt32(Math.Floor(x1)), Convert.ToInt32(Math.Floor(y1)));
+
+                yield return initialTile;
+
+                if (initialTile == finalTile || initialTile.X == finalTile.X + 1)
+
+                {
+
+                    yield return finalTile;
+
+                    yield break;
+
+                }
+
+                float yTemp = directionLeft ? (y0 - (x0 % 1) * m) - m : (1 - (x0 % 1)) * m + y0; //x-coordinates for second tile
+
+                if (directionLeft)
+
+                {
+
+                    for (int x = initialTile.X - 1; x > finalTile.X; x--)
+
+                    {
+
+                        int y = Convert.ToInt32(Math.Floor(yTemp));
+
+                        yield return new Point(x, y);
+
+                        yTemp -= m;
+
+                    }
+
+                }
+
+                else
+
+                {
+
+                    for (int x = initialTile.X + 1; x < finalTile.X; x++)
+
+                    {
+
+                        int y = Convert.ToInt32(Math.Floor(yTemp));
+
+                        yield return new Point(x, y);
+
+                        yTemp += m;
+
+                    }
+
+                }
+
+                yield return finalTile;
+
+            }
+
+            yield break;
+
+        }
         #endregion
+    }
+
+    public static class ListExtensions
+    {
+        public static List<List<T>> ChunkBy<T>(this List<T> source, int chunkSize)
+        {
+            return source
+                .Select((x, i) => new { Index = i, Value = x })
+                .GroupBy(x => x.Index / chunkSize)
+                .Select(x => x.Select(v => v.Value).ToList())
+                .ToList();
+        }
     }
 }
