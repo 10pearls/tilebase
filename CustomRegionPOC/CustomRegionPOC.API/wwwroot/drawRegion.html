@@ -17,8 +17,45 @@
    </head>
    <body>
       <div id="map"></div>
+      <!--<script src="https://maps.googleapis.com/maps/api/js"></script>-->
+      <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing"></script>
       <script>
          var coordinates = [];
+
+         function TileToQuadKey ( x, y, zoom){
+             var quad = "";
+             for (var i = zoom; i > 0; i--){
+                 var mask = 1 << (i - 1);
+                 var cell = 0;
+                 if ((x & mask) != 0)
+                     cell++;
+                 if ((y & mask) != 0)
+                     cell += 2;
+                 quad += cell;
+             }
+             return quad;
+         }
+
+         var tilelayer = new google.maps.ImageMapType({
+             getTileUrl: function(tile, zoom) {
+                 var imageurl3 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ff000044&chld=FFFFFF|32|h|000000|b|";
+                 var imageurl4 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff00&chld=FFFFFF|32|h|000000|b|";
+                 var tilegoogle = " (" + tile.x + "," + tile.y +")";
+                 //var tiletms = " (" + tile.x + "," + ((1 << zoom) - tile.y - 1) + ")";
+                 //var tilequadtree = " " +TileToQuadKey( tile.x, tile.y, zoom);
+
+                 if (tile.x < 0 || tile.y < 0) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
+                 if (tile.x >= (1 << zoom) || tile.y >= (1 << zoom)) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
+
+                 if ((tile.x % 2 && !(tile.y % 2)) || (!(tile.x % 2) && tile.y % 2)) {
+                     imageurl = imageurl3;
+                 } else {
+                     imageurl = imageurl4;
+                 }
+                 return imageurl + "||||Google: "+tilegoogle+"|Zoom "+zoom+"||||||____________________________";
+             },
+             tileSize: new google.maps.Size(256, 256)
+         });
          
          function initMap() {
           var map = new google.maps.Map(document.getElementById('map'), {
@@ -107,6 +144,7 @@
             }
             coordinates = []
             map = newMap();
+              map.overlayMapTypes.insertAt(0,tilelayer);
             drawingManager.setMap(map);
 
               var opt = { minZoom: 8};
@@ -114,14 +152,15 @@
           });
          
           map = newMap();
+          map.overlayMapTypes.insertAt(0,tilelayer);
           drawingManager.setMap(map);
              var opt = { minZoom: 8};
              map.setOptions(opt);
          }
+         initMap();
          
       </script>
-      <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing&callback=initMap"
-         async defer></script>
+
       <br><br>
       <input type="button" value="find regions" onclick="window.location.href='getPropertyRegions.html'" />
       <br><br>
