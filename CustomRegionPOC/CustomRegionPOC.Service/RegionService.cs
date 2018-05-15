@@ -183,14 +183,12 @@ namespace CustomRegionPOC.Service
                     KeySchema = new List<KeySchemaElement>
                     {
                         new KeySchemaElement { AttributeName = hashKey, KeyType = KeyType.HASH },
-                        new KeySchemaElement { AttributeName = SortKey1, KeyType = KeyType.RANGE },
-                        new KeySchemaElement { AttributeName = SortKey2, KeyType = KeyType.RANGE }
+                        new KeySchemaElement { AttributeName = SortKey1, KeyType = KeyType.RANGE }
                     },
                     AttributeDefinitions = new List<AttributeDefinition>
                     {
                         new AttributeDefinition { AttributeName = hashKey, AttributeType = ScalarAttributeType.S },
-                        new AttributeDefinition { AttributeName = SortKey1, AttributeType = ScalarAttributeType.S },
-                        new AttributeDefinition { AttributeName = SortKey2, AttributeType = ScalarAttributeType.N }
+                        new AttributeDefinition { AttributeName = SortKey1, AttributeType = ScalarAttributeType.S }
                     },
                 });
 
