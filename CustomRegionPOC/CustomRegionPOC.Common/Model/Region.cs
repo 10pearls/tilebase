@@ -12,6 +12,12 @@ namespace CustomRegionPOC.Common.Model
 
         public string Tile { get; set; }
 
+        public RecordType Type { get; set; }
+
+        public decimal Latitude { get; set; }
+
+        public decimal Longitude { get; set; }
+
         public string LocationPoints { get; set; }
 
         public DateTime CreateDate { get; set; }
@@ -19,5 +25,11 @@ namespace CustomRegionPOC.Common.Model
         public List<LocationPoint> Points { get; set; }
 
         public List<Tile> Tiles { get; set; }
+    }
+
+    public enum RecordType
+    {
+        Region = 1,
+        Listing = 2,
     }
 }

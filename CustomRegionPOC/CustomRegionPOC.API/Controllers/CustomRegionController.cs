@@ -31,5 +31,12 @@ namespace CustomRegionPOC.API.Controllers
         {
             await this.service.Create(region);
         }
+
+        [HttpPost]
+        [Route("SaveListing")]
+        public async Task SaveListings([FromBody]Listing listing)
+        {
+            await this.service.SaveListing(listing);
+        }
     }
 }

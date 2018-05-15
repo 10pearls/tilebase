@@ -11,5 +11,9 @@ namespace CustomRegionPOC.Common.Service
         Task Create(Region region);
 
         Task<List<Region>> Get(decimal lat, decimal lng);
+
+        Task SaveListing(Listing listing);
+
+        Task<List<Listing>> GetListing(Region listing);
     }
 }
