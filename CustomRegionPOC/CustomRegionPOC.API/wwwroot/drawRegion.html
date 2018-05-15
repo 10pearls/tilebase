@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <title>Drawing tools</title>
@@ -55,10 +55,9 @@
             }
             return imageurl + "||||Google: " + tilegoogle + "|Zoom " + zoom + "||||||____________________________";
         },
-        tileSize: new google.maps.Size(256, 256)
+        tileSize: new google.maps.Size(256, 256),
+        opacity: 0.3,
     });
-
-    tilelayer.setOpacity(0.3);
 
     function initMap() {
         var map = new google.maps.Map(document.getElementById('map'), {
