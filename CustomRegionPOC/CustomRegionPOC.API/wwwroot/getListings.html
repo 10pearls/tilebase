@@ -1,10 +1,158 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>WIP</title>
+    <title>Drawing tools</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+        #map {
+            height: 100%;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
 </head>
 <body>
-<p>get listings</p>
+<div id="map"></div>
+<!--<script src="https://maps.googleapis.com/maps/api/js"></script>-->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing"></script>
+<script>
+    var coordinates = [];
+
+    function initMap() {
+        var map = new google.maps.Map(document.getElementById('map'), {
+            center: {lat: 39.48074006114467, lng: -101.43078939104066},
+            zoom: 10
+        });
+
+        function newMap() {
+            return new google.maps.Map(document.getElementById('map'), {
+                center: {lat: 39.48074006114467, lng: -101.43078939104066},
+                zoom: 10
+            });
+
+        }
+
+        var drawingManager = new google.maps.drawing.DrawingManager({
+            drawingMode: google.maps.drawing.OverlayType.POLYGON,
+            drawingControl: true,
+            drawingControlOptions: {
+                position: google.maps.ControlPosition.TOP_CENTER,
+                drawingModes: ['polygon']
+            },
+            markerOptions: {icon: 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png'},
+            circleOptions: {
+                fillColor: '#ffff00',
+                fillOpacity: 1,
+                strokeWeight: 5,
+                clickable: false,
+                editable: true,
+                zIndex: 1
+            }
+        });
+
+        google.maps.Polygon.prototype.getBoundingBox = function() {
+            var bounds = new google.maps.LatLngBounds();
+
+
+            this.getPath().forEach(function(element,index) {
+                bounds.extend(element)
+            });
+
+
+            return(bounds);
+        };
+
+
+        function postAjax(url, data, success) {
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState > 3 && xhr.status == 200) {
+                    success(xhr.responseText);
+                }
+            };
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xhr.send(JSON.stringify(data));
+            return xhr;
+        }
+
+        function getAjax(url, success) {
+            var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+            xhr.open('GET', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
+            };
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send();
+            return xhr;
+        }
+
+
+        google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
+            //console.log(e);
+            var locations = e.overlay.getPath().getArray();
+
+            for (var i = 0; i < locations.length; i++) {
+                var lat = locations[i].lat();
+                var lng = locations[i].lng();
+                coordinates.push({lat: lat, lng: lng});
+            }
+
+                var obj = {
+                    points: coordinates
+                }
+                console.log(obj);
+
+
+
+                var poly = new google.maps.Polygon({
+                    paths: coordinates,
+                    strokeColor: '#957aff',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 2,
+                    fillColor: '#957aff',
+                    fillOpacity: 0.35
+                });
+                
+                poly.setMap(map);
+                coordinates = [];
+                var marker = new google.maps.Marker({
+                    position: poly.getBoundingBox().getCenter(),
+                    map: map,
+                    title: 'Marker!'
+                });
+
+            
+                // postAjax('/api/customregion/', obj, function (data) {
+                //     //console.log(JSON.parse(data));
+                // });
+
+            //coordinates = []
+            // map = newMap();
+            // drawingManager.setMap(map);
+            //
+            // var opt = {minZoom: 8};
+            // map.setOptions(opt);
+        });
+
+        map = newMap();
+        drawingManager.setMap(map);
+        var opt = {minZoom: 8};
+        map.setOptions(opt);
+    }
+
+    initMap();
+
+</script>
+
+<br><br>
+<br><br>
 </body>
 </html>
