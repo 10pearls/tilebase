@@ -79,9 +79,9 @@
                     lng: latLngs.lng
                 }
                 console.log(obj);
-                // postAjax('/foobar', obj, function (data) {
-                //     //console.log(JSON.parse(data));
-                // });
+                postAjax('api/CustomRegion/SaveListing', obj, function (data) {
+                    //console.log(JSON.parse(data));
+                });
 
                 var marker = new google.maps.Marker({
                     position: latLngs,
