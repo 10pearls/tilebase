@@ -33,7 +33,7 @@
         xhr.send();
         return xhr;
     }
-    
+
     var coordinates = [];
     var map;
     var tilelayer;
@@ -75,8 +75,7 @@
         var markers = [];
 
 
-
-        mapOnClickEvent = function(event) {
+        mapOnClickEvent = function (event) {
 
 
             var url = '/api/customregion/';
@@ -110,7 +109,7 @@
                 }
             });
         }
-        
+
         google.maps.event.addListener(map, 'click', mapOnClickEvent);
 
     }
@@ -127,7 +126,7 @@
         map.overlayMapTypes.insertAt(0, tilelayer);
         var opt = {minZoom: 8};
         map.setOptions(opt);
-        google.maps.event.addListener(map,  'click', mapOnClickEvent);
+        google.maps.event.addListener(map, 'click', mapOnClickEvent);
     }
 
 
