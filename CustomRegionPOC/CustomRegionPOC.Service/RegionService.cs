@@ -29,7 +29,7 @@ namespace CustomRegionPOC.Service
             var credentials = new BasicAWSCredentials(configuration["AWS:AccessKey"], configuration["AWS:SecretKey"]);
             this.dynamoDBClient = new AmazonDynamoDBClient(credentials, RegionEndpoint.USEast1);
 
-            createTempTable("tile").Wait();
+            createTempTable("tile_listing_region").Wait();
 
             context = new DynamoDBContext(this.dynamoDBClient);
         }
