@@ -539,14 +539,14 @@ class MyClass:
         {
             var list = new List<Point>();
             var innerList = new List<Point>();
-            Parallel.ForEach(lines, (line) =>
+           foreach(var line in lines)
             {
                 var points = GetPointsOnLine(line.Item1, line.Item2);
                 foreach (var point in points)
                 {
                     list.Add(point);
                 }
-            });
+            };
 
             var topY = list.Max(x => x.Y);
             var bottomY = list.Min(x => x.Y);
@@ -556,7 +556,7 @@ class MyClass:
                 edgeCoords = edgeCoords.OrderBy(x => x.X).ToList();
                 for (int i = 1; i < edgeCoords.Count(); i = i + 2)
                 {
-                    for (int x = edgeCoords.ElementAt(i - 1).X + 1; i < edgeCoords.Last().X; i++)
+                    for (int x = edgeCoords.ElementAt(i - 1).X + 1; x < edgeCoords.ElementAt(i).X; x++)
                     {
                         innerList.Add(new Point(x, y));
                     }
@@ -590,14 +590,11 @@ class MyClass:
             bool steep = dy > dx;
 
             if (steep)
-
             {
 
                 bool directionDown = y0 > y1;
 
                 float m = dx / dy;
-
-
 
                 //return the point tile as it is
 
