@@ -27,9 +27,10 @@ namespace CustomRegionPOC.API.Controllers
         }
 
         [HttpPost]
-        public async Task Post([FromBody]Region region)
+        public async Task<List<Listing>> Post([FromBody]Region region)
         {
             await this.service.Create(region);
+            return await this.service.GetListing(region);
         }
 
         [HttpPost]

@@ -22,6 +22,7 @@
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing"></script>
 <script>
     var coordinates = [];
+    var markers = [];
 
     function TileToQuadKey(x, y, zoom) {
         var quad = "";
@@ -140,16 +141,45 @@
                 }
                 console.log(obj);
 
+                postAjax('/api/customregion/GetListings', obj, function (data) {
+                    var resp = JSON.parse(data);
+
+                    //poly.setMap(map);
+                    coordinates = [];
+                    for (var i = 0; i < resp.length; i++) {
+
+                        var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+                        var marker = new google.maps.Marker({
+                            position: markerLatLng,
+                            map: map,
+                            title: resp[i].name
+                        });
+                        markers.push(marker);
+
+                        function markerOnClickEvent(marker) {
+
+                            var infoWindow = new google.maps.InfoWindow({
+                                content: marker.title
+                            });
+                            infoWindow.open(map, marker);
+                        }
+
+                        google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+                    }
+
+                    //console.log(JSON.parse(data));
+                });
+
 
                 postAjax('/api/customregion/', obj, function (data) {
                     //console.log(JSON.parse(data));
                 });
 
             }
-            coordinates = []
-            map = newMap();
-            map.overlayMapTypes.insertAt(0, tilelayer);
-            drawingManager.setMap(map);
+           // coordinates = []
+            //map = newMap();
+            //map.overlayMapTypes.insertAt(0, tilelayer);
+            //drawingManager.setMap(map);
 
             var opt = {minZoom: 8};
             map.setOptions(opt);
