@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <title>Drawing tools</title>
@@ -17,98 +17,98 @@
     </style>
 </head>
 <body>
-<div id="map"></div>
-<!--<script src="https://maps.googleapis.com/maps/api/js"></script>-->
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing"></script>
-<script>
-    var coordinates = [];
+    <div id="map"></div>
+    <!--<script src="https://maps.googleapis.com/maps/api/js"></script>-->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing"></script>
+    <script>
+        var coordinates = [];
+        var markers = [];
 
-    function initMap() {
-        var map = new google.maps.Map(document.getElementById('map'), {
-            center: {lat: 39.48074006114467, lng: -101.43078939104066},
-            zoom: 10
-        });
-
-        function newMap() {
-            return new google.maps.Map(document.getElementById('map'), {
-                center: {lat: 39.48074006114467, lng: -101.43078939104066},
+        function initMap() {
+            var map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 39.48074006114467, lng: -101.43078939104066 },
                 zoom: 10
             });
 
-        }
+            function newMap() {
+                return new google.maps.Map(document.getElementById('map'), {
+                    center: { lat: 39.48074006114467, lng: -101.43078939104066 },
+                    zoom: 10
+                });
 
-        var drawingManager = new google.maps.drawing.DrawingManager({
-            drawingMode: google.maps.drawing.OverlayType.POLYGON,
-            drawingControl: true,
-            drawingControlOptions: {
-                position: google.maps.ControlPosition.TOP_CENTER,
-                drawingModes: ['polygon']
-            },
-            markerOptions: {icon: 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png'},
-            circleOptions: {
-                fillColor: '#ffff00',
-                fillOpacity: 1,
-                strokeWeight: 5,
-                clickable: false,
-                editable: true,
-                zIndex: 1
             }
-        });
 
-        google.maps.Polygon.prototype.getBoundingBox = function() {
-            var bounds = new google.maps.LatLngBounds();
-
-
-            this.getPath().forEach(function(element,index) {
-                bounds.extend(element)
+            var drawingManager = new google.maps.drawing.DrawingManager({
+                drawingMode: google.maps.drawing.OverlayType.POLYGON,
+                drawingControl: true,
+                drawingControlOptions: {
+                    position: google.maps.ControlPosition.TOP_CENTER,
+                    drawingModes: ['polygon']
+                },
+                markerOptions: { icon: 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png' },
+                circleOptions: {
+                    fillColor: '#ffffff',
+                    fillOpacity: 0,
+                    strokeWeight: 5,
+                    clickable: false,
+                    editable: true,
+                    zIndex: 1
+                }
             });
 
+            google.maps.Polygon.prototype.getBoundingBox = function () {
+                var bounds = new google.maps.LatLngBounds();
 
-            return(bounds);
-        };
+
+                this.getPath().forEach(function (element, index) {
+                    bounds.extend(element)
+                });
 
 
-        function postAjax(url, data, success) {
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', url);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState > 3 && xhr.status == 200) {
-                    success(xhr.responseText);
-                }
+                return (bounds);
             };
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-            xhr.send(JSON.stringify(data));
-            return xhr;
-        }
-
-        function getAjax(url, success) {
-            var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
-            xhr.open('GET', url);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
-            };
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.send();
-            return xhr;
-        }
 
 
-        google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
-            //console.log(e);
-            var locations = e.overlay.getPath().getArray();
+            function postAjax(url, data, success) {
 
-            for (var i = 0; i < locations.length; i++) {
-                var lat = locations[i].lat();
-                var lng = locations[i].lng();
-                coordinates.push({lat: lat, lng: lng});
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', url);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState > 3 && xhr.status == 200) {
+                        success(xhr.responseText);
+                    }
+                };
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+                xhr.send(JSON.stringify(data));
+                return xhr;
             }
+
+            function getAjax(url, success) {
+                var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+                xhr.open('GET', url);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
+                };
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                xhr.send();
+                return xhr;
+            }
+
+
+            google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
+                //console.log(e);
+                var locations = e.overlay.getPath().getArray();
+
+                for (var i = 0; i < locations.length; i++) {
+                    var lat = locations[i].lat();
+                    var lng = locations[i].lng();
+                    coordinates.push({ lat: lat, lng: lng });
+                }
 
                 var obj = {
                     points: coordinates
                 }
-                console.log(obj);
 
 
 
@@ -120,39 +120,52 @@
                     fillColor: '#957aff',
                     fillOpacity: 0.35
                 });
-                
-                poly.setMap(map);
-                coordinates = [];
-                var marker = new google.maps.Marker({
-                    position: poly.getBoundingBox().getCenter(),
-                    map: map,
-                    title: 'Marker!'
+
+                //var marker = new google.maps.Marker({
+                //    position: poly.getBoundingBox().getCenter(),
+                //    map: map,
+                //    title: 'Marker!'
+                //});
+
+
+                postAjax('/api/customregion/GetListings', obj, function (data) {
+                    var resp = JSON.parse(data);
+
+                    poly.setMap(map);
+                    coordinates = [];
+                    for (var i = 0; i < resp.length; i++) {
+
+                        var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+                        var marker = new google.maps.Marker({
+                            position: markerLatLng,
+                            map: map,
+                            title: resp[i].name
+                        });
+                        markers.push(marker);
+                    }
+
+                    //console.log(JSON.parse(data));
                 });
 
-            
-                // postAjax('/api/customregion/', obj, function (data) {
-                //     //console.log(JSON.parse(data));
-                // });
+                //coordinates = []
+                // map = newMap();
+                // drawingManager.setMap(map);
+                //
+                // var opt = {minZoom: 8};
+                // map.setOptions(opt);
+            });
 
-            //coordinates = []
-            // map = newMap();
-            // drawingManager.setMap(map);
-            //
-            // var opt = {minZoom: 8};
-            // map.setOptions(opt);
-        });
+            map = newMap();
+            drawingManager.setMap(map);
+            var opt = { minZoom: 8 };
+            map.setOptions(opt);
+        }
 
-        map = newMap();
-        drawingManager.setMap(map);
-        var opt = {minZoom: 8};
-        map.setOptions(opt);
-    }
+        initMap();
 
-    initMap();
+    </script>
 
-</script>
-
-<br><br>
-<br><br>
+    <br><br>
+    <br><br>
 </body>
 </html>

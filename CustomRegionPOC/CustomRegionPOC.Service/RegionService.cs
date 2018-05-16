@@ -22,6 +22,7 @@ namespace CustomRegionPOC.Service
     {
         private AmazonDynamoDBClient dynamoDBClient;
         private DynamoDBContext context;
+        private string stSortKey;
 
         public RegionService(IConfiguration configuration)
         {
@@ -35,10 +36,7 @@ namespace CustomRegionPOC.Service
 
         public async Task Create(Region region)
         {
-            DynamoDBContext context = new DynamoDBContext(this.dynamoDBClient);
-
             List<Tuple<PointF, PointF>> tuples = generateTileTuples(region.Points);
-
             List<Region> regions = this.transformRegion(region, this.rasterize(tuples));
 
             var chunkRegion = regions.ChunkBy<Region>(200);
@@ -53,10 +51,54 @@ namespace CustomRegionPOC.Service
 
         public async Task<List<Region>> Get(decimal lat, decimal lng)
         {
-            return await this.getRegion(lat, lng);
+            return this.filterRegionList(await this.getRegion(lat, lng, RecordType.Region), lat, lng);
         }
 
-        public async Task WaitUntilTableReady(string tableName)
+        public async Task SaveListing(Listing listing)
+        {
+            dynamic coordinates = getCoordinateTile(listing.Lat, listing.Lng);
+
+            await context.SaveAsync<Region>(new Region
+            {
+                Type = RecordType.Listing,
+                CreateDate = DateTime.UtcNow,
+                Name = listing.Name,
+                Latitude = listing.Lat,
+                Longitude = listing.Lng,
+                Tile = this.getTileStr((int)coordinates["tileX"], (int)coordinates["tileY"])
+            });
+        }
+
+        public async Task<List<Listing>> GetListing(Region region)
+        {
+            List<Listing> listings = new List<Listing>();
+
+            List<Tuple<PointF, PointF>> tuples = generateTileTuples(region.Points);
+            List<Point> tiles = this.rasterize(tuples);
+
+            Parallel.ForEach(tiles, tile =>
+            {
+                List<Region> listing = getRegion(tile.X, tile.Y, RecordType.Listing).Result;
+                Parallel.ForEach(listing, item =>
+                {
+                    if (this.pointInPolygon(region, item.Latitude, item.Longitude))
+                    {
+                        listings.Add(new Listing
+                        {
+                            Name = item.Name,
+                            Lat = item.Latitude,
+                            Lng = item.Longitude
+                        });
+                    }
+                });
+            });
+
+            return listings;
+        }
+
+        #region Private Function
+
+        private async Task WaitUntilTableReady(string tableName)
         {
             bool isTableAvailable = false;
             while (!isTableAvailable)
@@ -68,9 +110,7 @@ namespace CustomRegionPOC.Service
             }
         }
 
-        #region Private Function
-
-        public List<Region> transformRegion(Region region)
+        private List<Region> transformRegion(Region region)
         {
             List<Region> regions = new List<Region>();
 
@@ -96,7 +136,7 @@ namespace CustomRegionPOC.Service
             return regions;
         }
 
-        public List<Region> transformRegion(Region region, List<Point> tiles)
+        private List<Region> transformRegion(Region region, List<Point> tiles)
         {
             List<Region> regions = new List<Region>();
 
@@ -110,8 +150,9 @@ namespace CustomRegionPOC.Service
             {
                 regions.Add(new Region
                 {
-                    Tile = "(" + tile.X + "," + tile.Y + ")",
+                    Tile = getTileStr(tile.X, tile.Y),
                     Name = region.Name,
+                    Type = RecordType.Region,
                     Points = region.Points,
                     LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
                     Tiles = region.Tiles,
@@ -125,7 +166,8 @@ namespace CustomRegionPOC.Service
         private async Task createTempTable(string tableName)
         {
             string hashKey = "Tile";
-            string sortKey = "CreateDate";
+            string SortKey1 = "CreateDate";
+            string SortKey2 = "Type";
 
             var tableResponse = await this.dynamoDBClient.ListTablesAsync();
             if (!tableResponse.TableNames.Contains(tableName))
@@ -141,78 +183,19 @@ namespace CustomRegionPOC.Service
                     KeySchema = new List<KeySchemaElement>
                     {
                         new KeySchemaElement { AttributeName = hashKey, KeyType = KeyType.HASH },
-                        new KeySchemaElement { AttributeName = sortKey, KeyType = KeyType.RANGE }
+                        new KeySchemaElement { AttributeName = SortKey1, KeyType = KeyType.RANGE }
                     },
                     AttributeDefinitions = new List<AttributeDefinition>
                     {
                         new AttributeDefinition { AttributeName = hashKey, AttributeType = ScalarAttributeType.S },
-                        new AttributeDefinition { AttributeName = sortKey, AttributeType = ScalarAttributeType.S }
-                    }
+                        new AttributeDefinition { AttributeName = SortKey1, AttributeType = ScalarAttributeType.S }
+                    },
                 });
 
 
                 await WaitUntilTableReady(tableName);
             }
         }
-
-        //private List<Tile> generateTiles(List<LocationPoint> points)
-        //{
-        //    List<Tile> actualTiles = new List<Tile>();
-        //    List<Tile> tiles = new List<Tile>();
-
-        //    Parallel.ForEach(points, point =>
-        //    {
-        //        dynamic coordinates = getCoordinateTile(point.Lat, point.Lng);
-
-        //        List<decimal> bound = new List<decimal>();
-
-        //        actualTiles.Add(new Tile
-        //        {
-        //            Row = (int)coordinates["tileX"],
-        //            Column = (int)coordinates["tileY"],
-        //            Bound1 = coordinates["bound1"],
-        //            Bound2 = coordinates["bound2"],
-        //            Bound3 = coordinates["bound3"],
-        //            Bound4 = coordinates["bound4"],
-        //        });
-        //    });
-
-        //    double diff = actualTiles.First().Bound3 - actualTiles.First().Bound1;
-
-        //    double minBoundX = actualTiles.Min(x => x.Bound1);
-        //    double minBoundY = actualTiles.Min(x => x.Bound3);
-
-        //    int minRow = actualTiles.Min(x => x.Row);
-        //    int maxRow = actualTiles.Max(x => x.Row);
-
-        //    int minColumn = actualTiles.Min(x => x.Column);
-        //    int maxColumn = actualTiles.Max(x => x.Column);
-
-        //    double currentBoundX = minBoundX;
-        //    double currentBoundY = minBoundY;
-
-        //    for (int i = minRow; i <= maxRow; i++)
-        //    {
-        //        for (int j = minColumn; j <= maxColumn; j++)
-        //        {
-        //            Tile tile = new Tile();
-        //            tile.Row = i;
-        //            tile.Column = j;
-        //            tile.Bound1 = currentBoundX;
-        //            tile.Bound3 = currentBoundY;
-
-        //            currentBoundX += diff;
-        //            currentBoundY += diff;
-
-        //            tile.Bound2 = currentBoundX;
-        //            tile.Bound4 = currentBoundY;
-
-        //            tiles.Add(tile);
-        //        }
-        //    }
-
-        //    return tiles;
-        //}
 
         private List<Tuple<PointF, PointF>> generateTileTuples(List<LocationPoint> points)
         {
@@ -485,17 +468,29 @@ class MyClass:
             }
         }
 
-        private async Task<List<Region>> getRegion(decimal lat, decimal lng)
+        private async Task<List<Region>> getRegion(decimal lat, decimal lng, RecordType type)
         {
             dynamic coordinates = getCoordinateTile(lat, lng);
 
+            return await getRegion((int)coordinates["tileX"], (int)coordinates["tileY"], type);
+        }
+
+        private async Task<List<Region>> getRegion(int row, int column, RecordType type)
+        {
             List<Region> region = new List<Region>();
 
             List<ScanCondition> conditions = new List<ScanCondition>();
-            conditions.Add(new ScanCondition("Tile", ScanOperator.Contains, ("(" + (int)coordinates["tileX"] + "," + (int)coordinates["tileY"] + ")")));
+            conditions.Add(new ScanCondition("Tile", ScanOperator.Equal, getTileStr(row, column)));
+            conditions.Add(new ScanCondition("Type", ScanOperator.Equal, type));
+
             region = await context.ScanAsync<Region>(conditions).GetRemainingAsync();
 
-            return filterRegionList(region, lat, lng);
+            return region;
+        }
+
+        private string getTileStr(int row, int column)
+        {
+            return "(" + row + "," + column + ")";
         }
 
         private List<Region> filterRegionList(List<Region> regions, decimal lat, decimal lng)
