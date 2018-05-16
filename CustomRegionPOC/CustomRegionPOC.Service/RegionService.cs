@@ -76,21 +76,18 @@ namespace CustomRegionPOC.Service
             List<Tuple<PointF, PointF>> tuples = generateTileTuples(region.Points);
             List<Point> tiles = this.rasterize(tuples);
 
-            Parallel.ForEach(tiles, tile =>
+            List<Region> listing = getRegion(tiles, RecordType.Listing).Result;
+            Parallel.ForEach(listing, item =>
             {
-                List<Region> listing = getRegion(tile.X, tile.Y, RecordType.Listing).Result;
-                Parallel.ForEach(listing, item =>
+                if (this.pointInPolygon(region, item.Latitude, item.Longitude))
                 {
-                    if (this.pointInPolygon(region, item.Latitude, item.Longitude))
+                    listings.Add(new Listing
                     {
-                        listings.Add(new Listing
-                        {
-                            Name = item.Name,
-                            Lat = item.Latitude,
-                            Lng = item.Longitude
-                        });
-                    }
-                });
+                        Name = item.Name,
+                        Lat = item.Latitude,
+                        Lng = item.Longitude
+                    });
+                }
             });
 
             return listings;
@@ -472,21 +469,37 @@ class MyClass:
         {
             dynamic coordinates = getCoordinateTile(lat, lng);
 
-            return await getRegion((int)coordinates["tileX"], (int)coordinates["tileY"], type);
+            List<Point> points = new List<Point>();
+            points.Add(new Point((int)coordinates["tileX"], (int)coordinates["tileY"]));
+
+            return await getRegion(points, type);
         }
 
-        private async Task<List<Region>> getRegion(int row, int column, RecordType type)
+        private async Task<List<Region>> getRegion(List<Point> points, RecordType type)
         {
             List<Region> region = new List<Region>();
 
             List<ScanCondition> conditions = new List<ScanCondition>();
-            conditions.Add(new ScanCondition("Tile", ScanOperator.Equal, getTileStr(row, column)));
+            conditions.Add(new ScanCondition("Tile", ScanOperator.In, points.Select(x => getTileStr(x.X, x.Y)).ToArray()));
             conditions.Add(new ScanCondition("Type", ScanOperator.Equal, type));
 
             region = await context.ScanAsync<Region>(conditions).GetRemainingAsync();
 
             return region;
         }
+
+        //private async Task<List<Region>> getRegion(int row, int column, RecordType type)
+        //{
+        //    List<Region> region = new List<Region>();
+
+        //    List<ScanCondition> conditions = new List<ScanCondition>();
+        //    conditions.Add(new ScanCondition("Tile", ScanOperator.Equal, getTileStr(row, column)));
+        //    conditions.Add(new ScanCondition("Type", ScanOperator.Equal, type));
+
+        //    region = await context.ScanAsync<Region>(conditions).GetRemainingAsync();
+
+        //    return region;
+        //}
 
         private string getTileStr(int row, int column)
         {
@@ -539,7 +552,7 @@ class MyClass:
         {
             var list = new List<Point>();
             var innerList = new List<Point>();
-           foreach(var line in lines)
+            foreach (var line in lines)
             {
                 var points = GetPointsOnLine(line.Item1, line.Item2);
                 foreach (var point in points)
