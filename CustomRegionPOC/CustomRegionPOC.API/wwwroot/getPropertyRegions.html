@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
-    <title>Drawing tools</title>
+    <title>Tile Base</title>
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
     <meta charset="utf-8">
     <style>
@@ -78,16 +78,35 @@
         mapOnClickEvent = function (event) {
 
 
+            var pointLatLng = { lat: event.latLng.lat(), lng: event.latLng.lng()};
+            
             var url = '/api/customregion/';
-            url += event.latLng.lat().toString();
+            url += pointLatLng.lat.toString();
             url += '/';
-            url += event.latLng.lng().toString();
+            url += pointLatLng.lng.toString();
 
 
             getAjax(url, function (res) {
                 console.log(res);
 
                 res = JSON.parse(res);
+
+                var marker = new google.maps.Marker({
+                    position: pointLatLng,
+                    map: map,
+                    title: 'Region',
+                    content: pointLatLng
+                });
+
+                google.maps.event.addListener(marker, 'click', function() {
+                    
+                    var markerTitle = res.map(r => r.name).join(', ');
+                    var infoWindow = new google.maps.InfoWindow({
+                        content: markerTitle
+                    });
+                    infoWindow.open(map, marker);
+                });
+                
                 for (var i = 0; i < res.length; i++) {
                     var points = res[i].points;
 
