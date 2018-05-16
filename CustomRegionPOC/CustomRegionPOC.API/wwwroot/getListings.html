@@ -142,6 +142,16 @@
                             title: resp[i].name
                         });
                         markers.push(marker);
+                        
+                        function markerOnClickEvent(marker) {
+                            
+                            var infoWindow = new google.maps.InfoWindow({
+                                content: marker.title
+                            });
+                            infoWindow.open(map, marker);
+                        }
+
+                        google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
                     }
 
                     //console.log(JSON.parse(data));
