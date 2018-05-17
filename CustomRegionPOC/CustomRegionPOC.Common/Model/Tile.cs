@@ -6,6 +6,10 @@ namespace CustomRegionPOC.Common.Model
 {
     public class Tile
     {
+        public int Zoom { get; set; }
+        public float Lat { get; set; }
+        public float Lng { get; set; }
+
         public float Row { get; set; }
         public float Column { get; set; }
 
