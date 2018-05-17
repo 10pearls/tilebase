@@ -5,7 +5,7 @@ using System.Text;
 
 namespace CustomRegionPOC.Common.Model
 {
-    [DynamoDBTable("tile_listing_region")]
+    [DynamoDBTable("tile_listing_region_v2")]
     public class Region
     {
         public string Name { get; set; }

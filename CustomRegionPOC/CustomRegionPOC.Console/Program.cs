@@ -6,7 +6,6 @@ using Amazon.DynamoDBv2.Model;
 using Amazon.Runtime;
 using CustomRegionPOC.Common.Model;
 using CustomRegionPOC.Common.Service;
-using IronPython.Hosting;
 using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 using System.Text;
@@ -18,14 +17,60 @@ using System.Drawing;
 using System.Net;
 using System.IO;
 using CustomRegionPOC.Common.Helper;
+using CustomRegionPOC.Service;
+using System.Data;
 
 namespace CustomRegionPOC.Console
 {
     class Program
     {
+        public static IConfiguration Configuration { get; set; }
+
         static void Main(string[] args)
         {
             System.Console.WriteLine("Hello World!");
+            var dt = csvHelper.parseCsv("/home/hussain/Downloads/homesnap data/SampleData_20180510/PropertyAddressesTest.csv");
+                    
+            // Set up configuration sources.
+        var builder = new ConfigurationBuilder()
+            .SetBasePath("/home/hussain/Desktop/projects/homesnap/poc/tilebase/CustomRegionPOC/CustomRegionPOC.Console/")
+            .AddJsonFile("appsettings.json", optional: true);
+
+            Configuration = builder.Build();
+
+            var regionServiceInstance = new RegionService(Configuration);
+             System.Console.WriteLine(Configuration["AWS:region"]);
+
+        var pointsList = new List<PointF>();
+        var listTile = new List<Tile>();
+        var regions = new List<Region>();
+        Parallel.ForEach (dt.Rows.Cast<DataRow>(), row => {
+
+            var pointFInstance = new PointF
+            {
+                X = (float)(Convert.ToDecimal(row[0].ToString())),
+                Y = (float)(Convert.ToDecimal(row[1].ToString()))
+            };
+
+
+            pointsList.Add(pointFInstance);
+            listTile = regionServiceInstance.getCoordinateTile(pointsList);
+            // System.Console.WriteLine(listTile);
+            // System.Console.WriteLine(listTile[0].Lat);
+            // break;
+            regions.Add(new Region {
+                Name = row[2].ToString(),
+                Tile = regionServiceInstance.getTileStr((int)listTile[0].Row, (int)listTile[0].Column),
+                Latitude = Convert.ToDecimal(listTile[0].Lat),
+                Longitude = Convert.ToDecimal(listTile[0].Lng),
+                Type = RecordType.Listing,
+                CreateDate = DateTime.UtcNow
+            });
+            System.Console.WriteLine(row[2].ToString());
+        });
+
+        regionServiceInstance.saveRegions(regions);   
+
         }
     }
 }

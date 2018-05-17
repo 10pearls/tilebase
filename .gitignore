@@ -6,3 +6,4 @@ obj/
 *.user
 CustomRegionPOC/CustomRegionPOC.API/appsettings.json
 .idea/
+.vscode/
