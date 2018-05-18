@@ -29,7 +29,18 @@ namespace CustomRegionPOC.Console
         static void Main(string[] args)
         {
             System.Console.WriteLine("Hello World!");
-            var dt = csvHelper.parseCsv("/home/hussain/Downloads/homesnap data/SampleData_20180510/PropertyAddressesTest.csv");
+
+            var dt = new DataTable();
+
+            try {
+
+            dt = csvHelper.parseCsv(args[0]);
+            }
+
+            catch (Exception ex) {
+                System.Console.WriteLine("Unable to parse csv. invalid path?");
+                throw ex;
+            }
                     
             // Set up configuration sources.
         var builder = new ConfigurationBuilder()
@@ -52,23 +63,18 @@ namespace CustomRegionPOC.Console
                 Y = (float)(Convert.ToDecimal(row[1].ToString()))
             };
 
-
             pointsList.Add(pointFInstance);
             listTile = regionServiceInstance.getCoordinateTile(pointsList);
-            // System.Console.WriteLine(listTile);
-            // System.Console.WriteLine(listTile[0].Lat);
-            // break;
+
             regions.Add(new Region {
                 Name = row[2].ToString(),
                 Tile = regionServiceInstance.getTileStr((int)listTile[0].Row, (int)listTile[0].Column),
                 Latitude = Convert.ToDecimal(listTile[0].Lat),
                 Longitude = Convert.ToDecimal(listTile[0].Lng),
                 Type = RecordType.Listing,
-                CreateDate = DateTime.UtcNow
+                Guid = Guid.NewGuid().ToString()
             });
-            System.Console.WriteLine(row[2].ToString());
         });
-
         regionServiceInstance.saveRegions(regions);   
 
         }

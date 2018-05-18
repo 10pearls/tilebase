@@ -20,7 +20,7 @@ namespace CustomRegionPOC.Common.Model
 
         public string LocationPoints { get; set; }
 
-        public DateTime CreateDate { get; set; }
+        public string Guid { get; set; }
 
         public List<LocationPoint> Points { get; set; }
 

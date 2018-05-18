@@ -68,7 +68,7 @@ namespace CustomRegionPOC.Service
                 context.SaveAsync<Region>(new Region
                 {
                     Type = RecordType.Listing,
-                    CreateDate = DateTime.UtcNow,
+                    Guid = Guid.NewGuid().ToString(),
                     Name = listing.Name,
                     Latitude = listing.Lat,
                     Longitude = listing.Lng,
@@ -134,7 +134,7 @@ namespace CustomRegionPOC.Service
                     Points = region.Points,
                     LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
                     Tiles = region.Tiles,
-                    CreateDate = DateTime.UtcNow,
+                    Guid = Guid.NewGuid().ToString(),
                 });
             }
 
@@ -161,7 +161,7 @@ namespace CustomRegionPOC.Service
                     Points = region.Points,
                     LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
                     Tiles = region.Tiles,
-                    CreateDate = DateTime.UtcNow,
+                    Guid = Guid.NewGuid().ToString(),
                 });
             }
 
@@ -171,7 +171,7 @@ namespace CustomRegionPOC.Service
         private async Task createTempTable(string tableName)
         {
             string hashKey = "Tile";
-            string SortKey1 = "CreateDate";
+            string SortKey1 = "Guid";
 
             var tableResponse = await this.dynamoDBClient.ListTablesAsync();
             if (!tableResponse.TableNames.Contains(tableName))
