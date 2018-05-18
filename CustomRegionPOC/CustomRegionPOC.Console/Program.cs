@@ -44,7 +44,7 @@ namespace CustomRegionPOC.Console
                     
             // Set up configuration sources.
         var builder = new ConfigurationBuilder()
-            .SetBasePath("/home/hussain/Desktop/projects/homesnap/poc/tilebase/CustomRegionPOC/CustomRegionPOC.Console/")
+            .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: true);
 
             Configuration = builder.Build();
@@ -75,6 +75,7 @@ namespace CustomRegionPOC.Console
                 Guid = Guid.NewGuid().ToString()
             });
         });
+        //System.Console.WriteLine("added all regions");
         regionServiceInstance.saveRegions(regions);   
 
         }
