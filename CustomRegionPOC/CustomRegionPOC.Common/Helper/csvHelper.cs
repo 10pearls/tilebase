@@ -12,7 +12,11 @@ namespace CustomRegionPOC.Common.Helper
 
     public class csvHelper
     {
-         public static DataTable parseCsv(string csvPath)
+        public static DataTable parsePropertyCsv(string csvpath) {
+            DataTable dt = new DataTable();
+            return dt;
+        }
+         public static DataTable parseAreaCsv(string csvPath)
         {
         //Create a DataTable.  
         DataTable dt = new DataTable();  

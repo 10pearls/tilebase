@@ -29,21 +29,33 @@ namespace CustomRegionPOC.Console
         static void Main(string[] args)
         {
             System.Console.WriteLine("Initiating Data Migration");
-            if (args[0] == "listingsPath") {
-                migrateListings(args[1]);
+
+
+            for (var  i = 0; i < args.Length; i++) {
+                if (args[i] == "areas") {
+                    migrateAreas(args[i+1]);
+                }
+                if (args[i] == "properties") {
+                    migrateProperties(args[i+1]);
+                }
             }
 
         }
 
-        static void migrateListings(string url) {
 
-            System.Console.WriteLine("Migrating Listings");
+        static void migrateProperties(string url) {
+            System.Console.WriteLine("added all properties");
+        }
+
+        static void migrateAreas(string url) {
+
+            System.Console.WriteLine("Migrating Areas");
 
             var dt = new DataTable();
 
             try {
 
-            dt = csvHelper.parseCsv(url);
+            dt = csvHelper.parseAreaCsv(url);
             }
             catch (Exception ex) {
                 System.Console.WriteLine("Unable to parse csv. invalid path?");
@@ -87,7 +99,7 @@ namespace CustomRegionPOC.Console
             // });
         });
 
-        System.Console.WriteLine("added all regions");
+        System.Console.WriteLine("added all areas");
         //regionServiceInstance.saveRegions(regions);   
 
         }
