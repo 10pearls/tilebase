@@ -36,14 +36,26 @@ namespace CustomRegionPOC.Console
                     migrateAreas(args[i+1]);
                 }
                 if (args[i] == "properties") {
-                    migrateProperties(args[i+1]);
+                    migrateProperties(args[i+1], args[i+2]);
                 }
             }
 
         }
 
 
-        static void migrateProperties(string url) {
+        static void migrateProperties(string propertiesPath, string propertyAddressPath) {
+
+            var dt = new DataTable();
+
+            try {
+
+            dt = csvHelper.parsePropertyCsv(propertiesPath, propertyAddressPath);
+            }
+            catch (Exception ex) {
+                System.Console.WriteLine("Unable to parse csv. invalid path?");
+                throw ex;
+            }
+
             System.Console.WriteLine("added all properties");
         }
 

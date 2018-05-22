@@ -12,9 +12,34 @@ namespace CustomRegionPOC.Common.Helper
 
     public class csvHelper
     {
-        public static DataTable parsePropertyCsv(string csvpath) {
-            DataTable dt = new DataTable();
-            return dt;
+        public static DataTable parsePropertyCsv(string propertiesPath, string propertyAddressPath) {
+            DataTable dtProperties = new DataTable();
+            DataTable dtPropertyAddresses = new DataTable();
+
+
+            //Read the contents of CSV file.  
+            string propertiesData = File.ReadAllText(propertiesPath);
+            string propertyAddressesData = File.ReadAllText(propertyAddressPath);
+
+
+            List<string> splittedPropertiesData = propertiesData.Split('\n').ToList();
+
+
+            List<string> splittedPropertyAddressesData = propertyAddressesData.Split('\n').ToList();
+
+            // System.Console.WriteLine(splittedPropertiesData[0], '\n');
+            // System.Console.WriteLine(splittedPropertyAddressesData[0], '\n');
+
+
+
+            System.Console.WriteLine("splitting properties", splittedPropertiesData[1].Split(',').Count().ToString());
+
+            System.Console.WriteLine("splitting addresses", splittedPropertyAddressesData[1].Split(',').Count().ToString());
+    
+
+
+
+            return dtProperties;
         }
          public static DataTable parseAreaCsv(string csvPath)
         {
