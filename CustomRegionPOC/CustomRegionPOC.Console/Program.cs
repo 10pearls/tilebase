@@ -63,26 +63,30 @@ namespace CustomRegionPOC.Console
         var pointsList = new List<PointF>();
         var listTile = new List<Tile>();
         var regions = new List<Region>();
+
         Parallel.ForEach (dt.Rows.Cast<DataRow>(), row => {
 
-            var pointFInstance = new PointF
-            {
-                X = (float)(Convert.ToDecimal(row[0].ToString())),
-                Y = (float)(Convert.ToDecimal(row[1].ToString()))
-            };
+            System.Console.WriteLine(row.ToString());
 
-            pointsList.Add(pointFInstance);
-            listTile = regionServiceInstance.getCoordinateTile(pointsList);
+            // var pointFInstance = new PointF
+            // {
+            //     X = (float)(Convert.ToDecimal(row[0].ToString())),
+            //     Y = (float)(Convert.ToDecimal(row[1].ToString()))
+            // };
 
-            regions.Add(new Region {
-                Name = row[2].ToString(),
-                Tile = regionServiceInstance.getTileStr((int)listTile[0].Row, (int)listTile[0].Column),
-                Latitude = Convert.ToDecimal(listTile[0].Lat),
-                Longitude = Convert.ToDecimal(listTile[0].Lng),
-                Type = RecordType.Listing,
-                Guid = Guid.NewGuid().ToString()
-            });
+            // pointsList.Add(pointFInstance);
+            // listTile = regionServiceInstance.getCoordinateTile(pointsList);
+
+            // regions.Add(new Region {
+            //     Name = row[2].ToString(),
+            //     Tile = regionServiceInstance.getTileStr((int)listTile[0].Row, (int)listTile[0].Column),
+            //     Latitude = Convert.ToDecimal(listTile[0].Lat),
+            //     Longitude = Convert.ToDecimal(listTile[0].Lng),
+            //     Type = RecordType.Listing,
+            //     Guid = Guid.NewGuid().ToString()
+            // });
         });
+
         System.Console.WriteLine("added all regions");
         //regionServiceInstance.saveRegions(regions);   
 
