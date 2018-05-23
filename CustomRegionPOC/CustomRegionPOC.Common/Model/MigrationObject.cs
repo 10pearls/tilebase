@@ -6,7 +6,7 @@ using System.Text;
 namespace CustomRegionPOC.Common.Model
 {
     [DynamoDBTable("tile_property_v2")]
-    public class PropertyMigrationObject
+    public class PropertyMigrationObject: ICloneable
     {
         //properties
 
@@ -162,6 +162,11 @@ namespace CustomRegionPOC.Common.Model
         public List<LocationPoint> Points { get; set; }
 
         public List<Tile> Tiles { get; set; }
+
+        public object Clone()
+        {
+            return this.MemberwiseClone();
+        }
     }
 
     [DynamoDBTable("tile_area_v2")]
