@@ -34,7 +34,11 @@ namespace CustomRegionPOC.Console
 
             string csvPath = string.Empty;
 
-            migrate(Directory.GetCurrentDirectory() + "\\AreasFinal.csv", Directory.GetCurrentDirectory() + "\\Properties.csv", Directory.GetCurrentDirectory() + "\\PropertyAddresses.csv");
+            //linux
+            migrate(Directory.GetCurrentDirectory() + "/AreasFinal.csv", Directory.GetCurrentDirectory() + "/Properties.csv", Directory.GetCurrentDirectory() + "/PropertyAddresses.csv");
+        
+            //windows
+            //migrate(Directory.GetCurrentDirectory() + "\\AreasFinal.csv", Directory.GetCurrentDirectory() + "\\Properties.csv", Directory.GetCurrentDirectory() + "\\PropertyAddresses.csv");
         }
 
 
@@ -92,6 +96,7 @@ namespace CustomRegionPOC.Console
                         tempObj.Type = RecordType.Area;
                         tempObj.Guid = Guid.NewGuid().ToString();
                         tempObj.Name = obj.AreaName;
+                        tempObj.OriginalPolygon = "";
 
                         areas.Add(tempObj);
                     }
@@ -101,9 +106,16 @@ namespace CustomRegionPOC.Console
 
                 foreach (var obj in areas.ToList().ChunkBy(100))
                 {
+                    try {
                     var batch = regionServiceInstance.context.CreateBatchWrite<AreaMigrationObject>();
                     batch.AddPutItems(obj);
                     batch.ExecuteAsync().Wait();
+                    //regionServiceInstance.context.SaveAsync(obj).Wait();
+                    }
+                    catch (Exception e ) {
+                        System.Console.WriteLine(obj);
+                        System.Console.WriteLine(e);
+                }
                 }
 
                 #endregion
@@ -185,7 +197,7 @@ namespace CustomRegionPOC.Console
                 List<Tile> tiles = regionServiceInstance.getCoordinateTile(points);
 
 
-                regionServiceInstance.createTempTable("tile_listing_region_v2").Wait();
+                regionServiceInstance.createTempTable("tile_property_v2").Wait();
 
                 foreach (PropertyMigrationObject obj in propertyMigration)
                 {
@@ -201,72 +213,27 @@ namespace CustomRegionPOC.Console
 
                 foreach (var obj in propertyMigration.ToList().ChunkBy(100))
                 {
+                    try {
                     var batch = regionServiceInstance.context.CreateBatchWrite<PropertyMigrationObject>();
                     batch.AddPutItems(obj);
                     batch.ExecuteAsync().Wait();
+                    //regionServiceInstance.context.SaveAsync(obj).Wait();
+                }
+                    catch (Exception e ) {
+                        System.Console.WriteLine(obj);
+                        System.Console.WriteLine(e);
+                    }
                 }
 
                 #endregion
 
-                var points2 = propertyMigration.Select(x => x.Points).ToList().Distinct();
+                //var points2 = propertyMigration.Select(x => x.Points).ToList().Distinct();
             }
             catch (Exception ex)
             {
                 System.Console.WriteLine("Unable to parse csv. invalid path?");
                 throw ex;
             }
-
-        }
-
-        static void migrateAreas(string url)
-        {
-            System.Console.WriteLine("Migrating Areas");
-
-            var dt = new DataTable();
-
-            try
-            {
-
-                dt = csvHelper.parseAreaCsv(url);
-            }
-            catch (Exception ex)
-            {
-                System.Console.WriteLine("Unable to parse csv. invalid path?");
-                throw ex;
-            }
-
-            System.Console.WriteLine(Configuration["AWS:region"]);
-
-            var pointsList = new List<PointF>();
-            var listTile = new List<Tile>();
-            var regions = new List<Region>();
-
-            Parallel.ForEach(dt.Rows.Cast<DataRow>(), row =>
-            {
-
-                System.Console.WriteLine(row.ToString());
-
-                // var pointFInstance = new PointF
-                // {
-                //     X = (float)(Convert.ToDecimal(row[0].ToString())),
-                //     Y = (float)(Convert.ToDecimal(row[1].ToString()))
-                // };
-
-                // pointsList.Add(pointFInstance);
-                // listTile = regionServiceInstance.getCoordinateTile(pointsList);
-
-                // regions.Add(new Region {
-                //     Name = row[2].ToString(),
-                //     Tile = regionServiceInstance.getTileStr((int)listTile[0].Row, (int)listTile[0].Column),
-                //     Latitude = Convert.ToDecimal(listTile[0].Lat),
-                //     Longitude = Convert.ToDecimal(listTile[0].Lng),
-                //     Type = RecordType.Listing,
-                //     Guid = Guid.NewGuid().ToString()
-                // });
-            });
-
-            System.Console.WriteLine("added all areas");
-            //regionServiceInstance.saveRegions(regions);   
 
         }
     }
