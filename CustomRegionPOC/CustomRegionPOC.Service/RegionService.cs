@@ -24,7 +24,7 @@ namespace CustomRegionPOC.Service
     public class RegionService : IRegionService
     {
         private AmazonDynamoDBClient dynamoDBClient;
-        private DynamoDBContext context;
+        public DynamoDBContext context;
         private string tilebaseURL;
 
         public RegionService(IConfiguration configuration)
@@ -49,7 +49,7 @@ namespace CustomRegionPOC.Service
 
         public async Task<List<Region>> Get(decimal lat, decimal lng)
         {
-            return this.filterRegionList(await this.getRegion(lat, lng, RecordType.Region), lat, lng);
+            return this.filterRegionList(await this.getRegion(lat, lng, RecordType.Area), lat, lng);
         }
 
         public async Task SaveListing(Listing listing)
@@ -157,7 +157,7 @@ namespace CustomRegionPOC.Service
                 {
                     Tile = getTileStr(tile.X, tile.Y),
                     Name = region.Name,
-                    Type = RecordType.Region,
+                    Type = RecordType.Area,
                     Points = region.Points,
                     LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
                     Tiles = region.Tiles,
@@ -168,11 +168,8 @@ namespace CustomRegionPOC.Service
             return regions;
         }
 
-        private async Task createTempTable(string tableName)
+        public async Task createTempTable(string tableName, string hashKey = "Tile", string SortKey1 = "Guid")
         {
-            string hashKey = "Tile";
-            string SortKey1 = "Guid";
-
             var tableResponse = await this.dynamoDBClient.ListTablesAsync();
             if (!tableResponse.TableNames.Contains(tableName))
             {
@@ -182,7 +179,7 @@ namespace CustomRegionPOC.Service
                     ProvisionedThroughput = new ProvisionedThroughput
                     {
                         ReadCapacityUnits = 3,
-                        WriteCapacityUnits = 1
+                        WriteCapacityUnits = 100
                     },
                     KeySchema = new List<KeySchemaElement>
                     {
@@ -201,7 +198,7 @@ namespace CustomRegionPOC.Service
             }
         }
 
-        private List<Tuple<PointF, PointF>> generateTileTuples(List<LocationPoint> points)
+        public List<Tuple<PointF, PointF>> generateTileTuples(List<LocationPoint> points)
         {
             List<Tuple<PointF, PointF>> tuple = new List<Tuple<PointF, PointF>>();
 
@@ -291,7 +288,7 @@ namespace CustomRegionPOC.Service
             return oddNodes;
         }
 
-        private List<Point> rasterize(List<Tuple<PointF, PointF>> lines)
+        public List<Point> rasterize(List<Tuple<PointF, PointF>> lines)
         {
             var list = new List<Point>();
             var innerList = new List<Point>();
@@ -486,7 +483,8 @@ namespace CustomRegionPOC.Service
 
         }
 
-        public void saveRegions(List<Region> regions) {
+        public void saveRegions(List<Region> regions)
+        {
 
             var chunkRegion = regions.ChunkBy<Region>(200);
 
@@ -502,39 +500,50 @@ namespace CustomRegionPOC.Service
 
         public List<Tile> getCoordinateTile(List<PointF> points, int zoomlevel = 10)
         {
-            List<Tile> tilesCoordinate = new List<Tile>();
+            List<Tile> tilesCoordinates = new List<Tile>();
 
-            Parallel.ForEach(points, point =>
+            foreach (var point in points)
             {
-                tilesCoordinate.Add(new Tile()
+                tilesCoordinates.Add(new Tile()
                 {
                     Zoom = zoomlevel,
                     Lat = point.X,
                     Lng = point.Y
                 });
-            });
-            
+            };
+
             try
             {
-                WebRequest request = WebRequest.Create(tilebaseURL);
-                request.Method = "POST";
-                string postData = JSONHelper.GetString(tilesCoordinate);
-                byte[] byteArray = Encoding.UTF8.GetBytes(postData);
-                request.ContentType = "application/x-www-form-urlencoded";
-                request.ContentLength = byteArray.Length;
-                Stream dataStream = request.GetRequestStream();
-                dataStream.Write(byteArray, 0, byteArray.Length);
-                dataStream.Close();
-                WebResponse response = request.GetResponse();
-                dataStream = response.GetResponseStream();
-                StreamReader reader = new StreamReader(dataStream);
-                string responseFromServer = reader.ReadToEnd();
-                //Console.WriteLine(responseFromServer);
-                reader.Close();
-                dataStream.Close();
-                response.Close();
+                List<Tile> tiles = new List<Tile>();
+                object lockObj = new object();
 
-                return JSONHelper.GetObject<List<Tile>>(responseFromServer);
+                Parallel.ForEach(tilesCoordinates.ChunkBy(200), tilesCoordinate =>
+                {
+                    WebRequest request = WebRequest.Create(tilebaseURL);
+                    request.Method = "POST";
+                    string postData = JSONHelper.GetString(tilesCoordinate);
+                    byte[] byteArray = Encoding.UTF8.GetBytes(postData);
+                    request.ContentType = "application/x-www-form-urlencoded";
+                    request.ContentLength = byteArray.Length;
+                    Stream dataStream = request.GetRequestStream();
+                    dataStream.Write(byteArray, 0, byteArray.Length);
+                    dataStream.Close();
+                    WebResponse response = request.GetResponse();
+                    dataStream = response.GetResponseStream();
+                    StreamReader reader = new StreamReader(dataStream);
+                    string responseFromServer = reader.ReadToEnd();
+                    //Console.WriteLine(responseFromServer);
+                    reader.Close();
+                    dataStream.Close();
+                    response.Close();
+
+                    lock (lockObj)
+                    {
+                        tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
+                    }
+                });
+
+                return tiles;
 
             }
             catch (Exception ex)

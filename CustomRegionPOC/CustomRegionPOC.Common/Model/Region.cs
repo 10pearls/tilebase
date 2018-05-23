@@ -29,7 +29,8 @@ namespace CustomRegionPOC.Common.Model
 
     public enum RecordType
     {
-        Region = 1,
+        Area = 1,
         Listing = 2,
+        Property = 3,
     }
 }
