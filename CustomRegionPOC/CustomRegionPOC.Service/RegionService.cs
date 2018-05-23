@@ -32,7 +32,7 @@ namespace CustomRegionPOC.Service
             var credentials = new BasicAWSCredentials(configuration["AWS:AccessKey"], configuration["AWS:SecretKey"]);
             this.dynamoDBClient = new AmazonDynamoDBClient(credentials, RegionEndpoint.USEast1);
 
-            createTempTable("tile_listing_region").Wait();
+            createTempTable("tile_listing_region_shahbaz").Wait();
 
             context = new DynamoDBContext(this.dynamoDBClient);
 
@@ -89,12 +89,21 @@ namespace CustomRegionPOC.Service
             List<Listing> listings = new List<Listing>();
 
             List<Tuple<PointF, PointF>> tuples = generateTileTuples(region.Points);
-            List<Point> tiles = this.rasterize(tuples);
+            Tuple<List<Point>, List<Point>> tilesTuple = this.rasterize(tuples);
+            List<String> innerTiles = tilesTuple.Item2.Select((tile) => getTileStr(tile.X, tile.Y)).ToList();
 
-            List<Region> listing = getRegion(tiles, RecordType.Listing).Result;
+            List<Region> listing = getRegion(tilesTuple, RecordType.Listing).Result;
             Parallel.ForEach(listing, item =>
             {
-                if (this.pointInPolygon(region, item.Latitude, item.Longitude))
+                if(innerTiles.Contains(item.Tile)) {
+                    listings.Add(new Listing
+                    {
+                        Name = item.Name,
+                        Lat = item.Latitude,
+                        Lng = item.Longitude
+                    });
+                } 
+                else if (this.pointInPolygon(region, item.Latitude, item.Longitude))
                 {
                     listings.Add(new Listing
                     {
@@ -148,17 +157,18 @@ namespace CustomRegionPOC.Service
             return regions;
         }
 
-        private List<Region> transformRegion(Region region, List<Point> tiles)
+        private List<Region> transformRegion(Region region, Tuple<List<Point>, List<Point>> tilesTuples)
         {
             List<Region> regions = new List<Region>();
-
+            List<Point> partialCoverTiles = tilesTuples.Item1;
+            List<Point> fullCoverTiles = tilesTuples.Item2;
             List<string> locationPoints = new List<string>();
             foreach (LocationPoint point in region.Points)
             {
                 locationPoints.Add(point.Lat + " " + point.Lng);
             }
 
-            foreach (Point tile in tiles)
+            foreach (Point tile in partialCoverTiles)
             {
                 regions.Add(new Region
                 {
@@ -169,6 +179,22 @@ namespace CustomRegionPOC.Service
                     LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
                     Tiles = region.Tiles,
                     CreateDate = DateTime.UtcNow,
+                    IsPartial = true
+                });
+            }
+
+            foreach (Point tile in fullCoverTiles)
+            {
+                regions.Add(new Region
+                {
+                    Tile = getTileStr(tile.X, tile.Y),
+                    Name = region.Name,
+                    Type = RecordType.Region,
+                    Points = region.Points,
+                    LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
+                    Tiles = region.Tiles,
+                    CreateDate = DateTime.UtcNow,
+                    IsPartial = false
                 });
             }
 
@@ -489,6 +515,20 @@ namespace CustomRegionPOC.Service
             return region;
         }
 
+        private async Task<List<Region>> getRegion(Tuple<List<Point>, List<Point>>  pointsTuple, RecordType type)
+        {
+            List<Region> region = new List<Region>();
+
+            List<ScanCondition> conditions = new List<ScanCondition>();
+            conditions.Add(new ScanCondition("Tile", ScanOperator.In, pointsTuple.Item1.Concat(pointsTuple.Item2).Select(x => getTileStr(x.X, x.Y)).ToArray()));
+            conditions.Add(new ScanCondition("Type", ScanOperator.Equal, type));
+
+            region = await context.ScanAsync<Region>(conditions).GetRemainingAsync();
+
+            return region;
+        }
+
+
         private string getTileStr(int row, int column)
         {
             return "(" + row + "," + column + ")";
@@ -500,7 +540,11 @@ namespace CustomRegionPOC.Service
 
             Parallel.ForEach(regions, region =>
             {
-                if (pointInPolygon(region, lat, lng))
+                if(!region.IsPartial)
+                {
+                    filteredRegion.Add(region);
+                }
+                else if(pointInPolygon(region, lat, lng))
                 {
                     filteredRegion.Add(region);
                 }
@@ -536,7 +580,7 @@ namespace CustomRegionPOC.Service
             return oddNodes;
         }
 
-        private List<Point> rasterize(List<Tuple<PointF, PointF>> lines)
+        private Tuple<List<Point>, List<Point>> rasterize(List<Tuple<PointF, PointF>> lines)
         {
             var list = new List<Point>();
             var innerList = new List<Point>();
@@ -564,10 +608,10 @@ namespace CustomRegionPOC.Service
 
                 }
             }
-            list.AddRange(innerList);
             list = list.Distinct().ToList();
+            innerList = innerList.Distinct().ToList();
 
-            return list;
+            return Tuple.Create(list, innerList);
         }
 
         private IEnumerable<Point> GetPointsOnLine(PointF initalPoint, PointF finalPoint)
@@ -603,7 +647,7 @@ namespace CustomRegionPOC.Service
 
                 var finalTile = new Point(Convert.ToInt32(Math.Floor(x1)), Convert.ToInt32(Math.Floor(y1)));
 
-                yield return initialTile;
+                //yield return initialTile;
 
                 if (initialTile == finalTile || initialTile.Y == finalTile.Y + 1)
 
@@ -673,7 +717,8 @@ namespace CustomRegionPOC.Service
 
                 var finalTile = new Point(Convert.ToInt32(Math.Floor(x1)), Convert.ToInt32(Math.Floor(y1)));
 
-                yield return initialTile;
+                //Not required to push initialTile
+                //yield return initialTile; 
 
                 if (initialTile == finalTile || initialTile.X == finalTile.X + 1)
 

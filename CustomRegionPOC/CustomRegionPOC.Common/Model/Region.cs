@@ -5,7 +5,7 @@ using System.Text;
 
 namespace CustomRegionPOC.Common.Model
 {
-    [DynamoDBTable("tile_listing_region")]
+    [DynamoDBTable("tile_listing_region_shahbaz")]
     public class Region
     {
         public string Name { get; set; }
@@ -25,6 +25,8 @@ namespace CustomRegionPOC.Common.Model
         public List<LocationPoint> Points { get; set; }
 
         public List<Tile> Tiles { get; set; }
+
+        public Boolean IsPartial {get; set;} //whether the region passes partially or completely through the region
     }
 
     public enum RecordType
