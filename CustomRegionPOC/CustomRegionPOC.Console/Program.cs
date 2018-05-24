@@ -131,7 +131,16 @@ namespace CustomRegionPOC.Console
             }
 
             regionServiceInstance.CreateTempTable("tile_area_v2", null, null).Wait();
-            regionServiceInstance.CreateTempTable("tile_area_listing_v2", null, null).Wait();
+
+            List<AttributeDefinition> attributeDefinition = new List<AttributeDefinition>()
+                {
+                    new AttributeDefinition { AttributeName = "GUID", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "AreaName", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "Points", AttributeType = ScalarAttributeType.S }
+                };
+
+            regionServiceInstance.CreateTempTable("tile_area_listing_v2", null, attributeDefinition, "GUID", "AreaID").Wait();
 
             foreach (var obj in areas.ToList().ChunkBy(100))
             {
