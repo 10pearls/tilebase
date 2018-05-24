@@ -8,12 +8,12 @@ namespace CustomRegionPOC.Common.Service
 {
     public interface IRegionService
     {
-        Task Create(Region region);
+        Task Create(Area region);
 
-        Task<List<Region>> Get(decimal lat, decimal lng);
+        Task<List<Area>> Get(decimal lat, decimal lng);
 
         Task SaveListing(Listing listing);
 
-        Task<List<Listing>> GetListing(Region listing);
+        Task<List<Listing>> GetListing(Area listing);
     }
 }

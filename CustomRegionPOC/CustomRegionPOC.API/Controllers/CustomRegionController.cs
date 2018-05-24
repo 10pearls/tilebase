@@ -21,16 +21,31 @@ namespace CustomRegionPOC.API.Controllers
         }
 
         [HttpGet("{lat}/{lng}", Name = "Get")]
-        public async Task<List<Region>> Get(decimal lat, decimal lng)
+        public async Task<List<Area>> Get(decimal lat, decimal lng)
         {
             return await this.service.Get(lat, lng);
         }
 
         [HttpPost]
-        public async Task<List<Listing>> Post([FromBody]Region region)
+        public async Task<List<Listing>> Post([FromBody]Area area)
         {
-            await this.service.Create(region);
-            return await this.service.GetListing(region);
+            List<Listing> listings = new List<Listing>();
+            List<Task> tasks = new List<Task>();
+
+
+            tasks.Add(Task.Factory.StartNew(() =>
+            {
+                this.service.Create(area).Wait();
+            }));
+
+            tasks.Add(Task.Factory.StartNew(() =>
+            {
+                listings = this.service.GetListing(area).Result;
+            }));
+            
+            Task.WaitAll(tasks.ToArray());
+
+            return listings;
         }
 
         [HttpPost]
@@ -42,9 +57,9 @@ namespace CustomRegionPOC.API.Controllers
 
         [HttpPost]
         [Route("GetListings")]
-        public async Task<List<Listing>> GetListings([FromBody]Region region)
+        public async Task<List<Listing>> GetListings([FromBody]Area area)
         {
-            return await this.service.GetListing(region);
+            return await this.service.GetListing(area);
         }
     }
 }

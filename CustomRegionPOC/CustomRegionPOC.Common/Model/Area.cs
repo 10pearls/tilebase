@@ -34,9 +34,9 @@ namespace CustomRegionPOC.Common.Model
 
         public string OriginalPolygonArea { get; set; }
 
-        public string AreaLatitude { get; set; }
+        public decimal Latitude { get; set; }
 
-        public string AreaLongitude { get; set; }
+        public decimal Longitude { get; set; }
 
         public string North { get; set; }
 

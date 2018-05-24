@@ -104,11 +104,7 @@ namespace CustomRegionPOC.Common.Model
         public string Zip { get; set; }
 
         public string CountyID { get; set; }
-
-        public string PropertyAddressLatitude { get; set; }
-
-        public string PropertyAddressLongitude { get; set; }
-
+        
         public string PixelX { get; set; }
 
         public string PixelY { get; set; }

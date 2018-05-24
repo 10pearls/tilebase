@@ -33,24 +33,23 @@ namespace CustomRegionPOC.Service
             var credentials = new BasicAWSCredentials(configuration["AWS:AccessKey"], configuration["AWS:SecretKey"]);
             this.dynamoDBClient = new AmazonDynamoDBClient(credentials, RegionEndpoint.USEast1);
 
-            CreateTempTable("tile_listing_region_v2", new List<LocalSecondaryIndex>()).Wait();
+            CreateTempTable("tile_listing_region_v2", null, null).Wait();
 
             context = new DynamoDBContext(this.dynamoDBClient);
 
             this.tilebaseURL = configuration["AWS:Tilebase-URL"];
         }
 
-        public async Task Create(Region region)
+        public async Task Create(Area region)
         {
             List<Tuple<PointF, PointF>> tuples = GenerateTileTuples(region.Points);
-            List<Region> regions = this.transformRegion(region, this.Rasterize(tuples));
-            SaveRegions(regions);
-
+            List<Area> areas = this.transformRegion(region, this.Rasterize(tuples));
+            SaveAreas(areas);
         }
 
-        public async Task<List<Region>> Get(decimal lat, decimal lng)
+        public async Task<List<Area>> Get(decimal lat, decimal lng)
         {
-            return this.filterRegionList(await this.getRegion(lat, lng, RecordType.Area), lat, lng);
+            return this.filterRegionList(await this.getRegionByArea(lat, lng), lat, lng);
         }
 
         public async Task SaveListing(Listing listing)
@@ -66,29 +65,28 @@ namespace CustomRegionPOC.Service
 
             Parallel.ForEach(coordinates, coordinate =>
             {
-                context.SaveAsync<Region>(new Region
+                context.SaveAsync<Property>(new Property
                 {
-                    Type = RecordType.Listing,
-                    Guid = Guid.NewGuid().ToString(),
-                    Name = listing.Name,
-                    Latitude = listing.Lat,
-                    Longitude = listing.Lng,
+                    PropertyID = Guid.NewGuid().ToString(),
+                    PropertyAddressName = listing.Name,
+                    Latitude = Convert.ToDecimal(coordinate.Lat),
+                    Longitude = Convert.ToDecimal(coordinate.Lng),
                     Tile = this.GetTileStr((int)coordinate.Row, (int)coordinate.Column)
                 }).Wait();
             });
         }
 
-        public async Task<List<Listing>> GetListing(Region region)
+        public async Task<List<Listing>> GetListing(Area area)
         {
             List<Listing> listings = new List<Listing>();
 
-            List<Tuple<PointF, PointF>> tuples = GenerateTileTuples(region.Points);
+            List<Tuple<PointF, PointF>> tuples = GenerateTileTuples(area.Points);
             List<Point> tiles = this.Rasterize(tuples);
 
-            List<Region> listing = getRegion(tiles, RecordType.Listing).Result;
+            List<Property> listing = getRegionByProperty(tiles).Result;
             Parallel.ForEach(listing, item =>
             {
-                if (this.isPointInPolygon(region, item.Latitude, item.Longitude))
+                if (this.isPointInPolygon(area, item.Latitude, item.Longitude))
                 {
                     listings.Add(new Listing
                     {
@@ -102,20 +100,26 @@ namespace CustomRegionPOC.Service
             return listings;
         }
 
-        public async Task CreateTempTable(string tableName, List<LocalSecondaryIndex> localSecondaryIndexes, string hashKey = "Tile", string SortKey = "Guid")
+        #region Public Function
+        public async Task CreateTempTable(string tableName, List<LocalSecondaryIndex> localSecondaryIndexes, List<AttributeDefinition> attributeDefinition, string hashKey = "Tile", string SortKey = "Guid")
         {
-            List<KeySchemaElement> keySchema = new List<KeySchemaElement>(){
-                        new KeySchemaElement { AttributeName = hashKey, KeyType = KeyType.HASH },
-                        new KeySchemaElement { AttributeName = SortKey, KeyType = KeyType.RANGE }
-                    };
+            List<KeySchemaElement> keySchema = new List<KeySchemaElement>() {
+                new KeySchemaElement { AttributeName = hashKey, KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = SortKey, KeyType = KeyType.RANGE }
+            };
 
             if (localSecondaryIndexes == null)
             {
                 localSecondaryIndexes = new List<LocalSecondaryIndex>();
             }
-            else
+
+            if (attributeDefinition == null || attributeDefinition.Count() == 0)
             {
-                localSecondaryIndexes = localSecondaryIndexes.Select(x => new LocalSecondaryIndex() { IndexName = x.IndexName, KeySchema = keySchema, Projection = x.Projection }).ToList();
+                attributeDefinition = new List<AttributeDefinition>()
+                {
+                    new AttributeDefinition { AttributeName = hashKey, AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = SortKey, AttributeType = ScalarAttributeType.S }
+                };
             }
 
             var tableResponse = await this.dynamoDBClient.ListTablesAsync();
@@ -126,15 +130,12 @@ namespace CustomRegionPOC.Service
                     TableName = tableName,
                     ProvisionedThroughput = new ProvisionedThroughput
                     {
+
                         ReadCapacityUnits = 3,
                         WriteCapacityUnits = 100
                     },
                     KeySchema = keySchema,
-                    AttributeDefinitions = new List<AttributeDefinition>
-                    {
-                        new AttributeDefinition { AttributeName = hashKey, AttributeType = ScalarAttributeType.S },
-                        new AttributeDefinition { AttributeName = SortKey, AttributeType = ScalarAttributeType.S }
-                    },
+                    AttributeDefinitions = attributeDefinition,
                     LocalSecondaryIndexes = localSecondaryIndexes
                 });
 
@@ -159,18 +160,15 @@ namespace CustomRegionPOC.Service
             return tuple;
         }
 
-        public void SaveRegions(List<Region> regions)
+        public void SaveAreas(List<Area> areas)
         {
-
-            var chunkRegion = regions.ChunkBy<Region>(200);
-
-            Parallel.ForEach(chunkRegion, item =>
+            Parallel.ForEach(areas.ChunkBy<Area>(200), (item, state, index) =>
             {
-                System.Console.WriteLine("initiating a new chunk");
-                var bulkInsert = context.CreateBatchWrite<Region>();
+                Console.WriteLine("Initiating a new chunk. Index: " + index);
+                var bulkInsert = context.CreateBatchWrite<Area>();
                 bulkInsert.AddPutItems(item);
                 bulkInsert.ExecuteAsync().Wait();
-                System.Console.WriteLine("chunk inserted successfully");
+                Console.WriteLine("Chunk inserted successfully. Index" + index);
             });
         }
 
@@ -267,7 +265,10 @@ namespace CustomRegionPOC.Service
             return "(" + row + "," + column + ")";
         }
 
+        #endregion
+
         #region Private Function
+
         private async Task waitUntilTableReady(string tableName)
         {
             bool isTableAvailable = false;
@@ -280,60 +281,34 @@ namespace CustomRegionPOC.Service
             }
         }
 
-        private List<Region> transformRegion(Region region)
+        private List<Area> transformRegion(Area area, List<Point> tiles)
         {
-            List<Region> regions = new List<Region>();
+            List<Area> areas = new List<Area>();
 
             List<string> locationPoints = new List<string>();
-            foreach (LocationPoint point in region.Points)
-            {
-                locationPoints.Add(point.Lat + " " + point.Lng);
-            }
-
-            foreach (Tile tile in region.Tiles)
-            {
-                regions.Add(new Region
-                {
-                    Tile = "(" + tile.Row + "," + tile.Column + ")",
-                    Name = region.Name,
-                    Points = region.Points,
-                    LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
-                    Tiles = region.Tiles,
-                    Guid = Guid.NewGuid().ToString(),
-                });
-            }
-
-            return regions;
-        }
-
-        private List<Region> transformRegion(Region region, List<Point> tiles)
-        {
-            List<Region> regions = new List<Region>();
-
-            List<string> locationPoints = new List<string>();
-            foreach (LocationPoint point in region.Points)
+            foreach (LocationPoint point in area.Points)
             {
                 locationPoints.Add(point.Lat + " " + point.Lng);
             }
 
             foreach (Point tile in tiles)
             {
-                regions.Add(new Region
+                areas.Add(new Area
                 {
                     Tile = GetTileStr(tile.X, tile.Y),
-                    Name = region.Name,
+                    Name = area.Name,
                     Type = RecordType.Area,
-                    Points = region.Points,
-                    LocationPoints = "((" + string.Join(", ", locationPoints) + "))",
-                    Tiles = region.Tiles,
+                    Points = area.Points,
+                    OriginalPolygon = "((" + string.Join(", ", locationPoints) + "))",
+                    Tiles = area.Tiles,
                     Guid = Guid.NewGuid().ToString(),
                 });
             }
 
-            return regions;
+            return areas;
         }
 
-        private async Task<List<Region>> getRegion(decimal lat, decimal lng, RecordType type)
+        private async Task<List<Area>> getRegionByArea(decimal lat, decimal lng)
         {
             List<PointF> points = new List<PointF>();
             points.Add(new PointF
@@ -344,46 +319,69 @@ namespace CustomRegionPOC.Service
 
             List<Tile> coordinates = GetCoordinateTile(points);
 
-            return await getRegion(coordinates.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), type);
+            return await getRegionByArea(coordinates.Select(x => new Point((int)x.Row, (int)x.Column)).ToList());
         }
 
-        private async Task<List<Region>> getRegion(List<Point> points, RecordType type)
+        private async Task<List<Area>> getRegionByArea(List<Point> points)
         {
-            List<Region> region = new List<Region>();
+            List<Area> area = new List<Area>();
 
             List<ScanCondition> conditions = new List<ScanCondition>();
             conditions.Add(new ScanCondition("Tile", ScanOperator.In, points.Select(x => GetTileStr(x.X, x.Y)).ToArray()));
-            conditions.Add(new ScanCondition("Type", ScanOperator.Equal, type));
 
-            region = await context.ScanAsync<Region>(conditions).GetRemainingAsync();
+            area = await context.ScanAsync<Area>(conditions).GetRemainingAsync();
 
-            return region;
+            return area;
         }
 
-        private List<Region> filterRegionList(List<Region> regions, decimal lat, decimal lng)
+        private async Task<List<Property>> getRegionByProperty(List<Point> points)
         {
-            List<Region> filteredRegion = new List<Region>();
-
-            Parallel.ForEach(regions, region =>
+            List<Property> property = new List<Property>();
+            try
             {
-                if (isPointInPolygon(region, lat, lng))
+                foreach (var obj in points)
                 {
-                    filteredRegion.Add(region);
+
+                    List<ScanCondition> conditions = new List<ScanCondition>();
+                    //conditions.Add(new ScanCondition("Tile", ScanOperator.In, obj.Select(x => GetTileStr(x.X, x.Y)).ToArray()));
+                    conditions.Add(new ScanCondition("Tile", ScanOperator.Equal, GetTileStr(obj.X, obj.Y)));
+
+                    property.AddRange(await context.ScanAsync<Property>(conditions).GetRemainingAsync());
+
+
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            return property;
+        }
+
+        private List<Area> filterRegionList(List<Area> areas, decimal lat, decimal lng)
+        {
+            List<Area> filteredAreas = new List<Area>();
+
+            Parallel.ForEach(areas, area =>
+            {
+                if (isPointInPolygon(area, lat, lng))
+                {
+                    filteredAreas.Add(area);
                 }
             });
 
-            return filteredRegion;
+            return filteredAreas;
         }
 
-        private bool isPointInPolygon(Region region, decimal lat, decimal lng)
+        private bool isPointInPolygon(Area area, decimal lat, decimal lng)
         {
-            decimal[] polyX = region.Points.Select(a => a.Lat).ToArray();
-            decimal[] polyY = region.Points.Select(a => a.Lng).ToArray();
+            decimal[] polyX = area.Points.Select(a => a.Lat).ToArray();
+            decimal[] polyY = area.Points.Select(a => a.Lng).ToArray();
 
             decimal x = lat;
             decimal y = lng;
 
-            int polyCorners = region.Points.Count;
+            int polyCorners = area.Points.Count;
             int i, j = polyCorners - 1;
             bool oddNodes = false;
 
@@ -562,6 +560,7 @@ namespace CustomRegionPOC.Service
             yield break;
 
         }
+
         #endregion
     }
 }

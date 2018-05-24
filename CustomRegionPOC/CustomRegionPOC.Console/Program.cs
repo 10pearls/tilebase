@@ -12,6 +12,7 @@ using System.Data;
 using System.Runtime.Serialization.Formatters.Binary;
 using Amazon.DynamoDBv2.Model;
 using CustomRegionPOC.Common.Extension;
+using Amazon.DynamoDBv2;
 
 namespace CustomRegionPOC.Console
 {
@@ -75,8 +76,8 @@ namespace CustomRegionPOC.Console
                 SubTypeID = area["SubTypeID"].ToString(),
                 OriginalPolygon = area["OriginalPolygon"].ToString(),
                 OriginalPolygonArea = area["OriginalPolygonArea"].ToString(),
-                AreaLatitude = area["Latitude"].ToString(),
-                AreaLongitude = area["Longitude"].ToString(),
+                Latitude = Convert.ToDecimal(area["Latitude"].ToString()),
+                Longitude = Convert.ToDecimal(area["Longitude"].ToString()),
                 North = area["North"].ToString(),
                 South = area["South"].ToString(),
                 East = area["East"].ToString(),
@@ -110,7 +111,7 @@ namespace CustomRegionPOC.Console
                 }
             }
 
-            regionServiceInstance.CreateTempTable("tile_area_v2", new List<LocalSecondaryIndex>()).Wait();
+            regionServiceInstance.CreateTempTable("tile_area_v2", null, null).Wait();
 
             foreach (var obj in areas.ToList().ChunkBy(100))
             {
@@ -182,8 +183,8 @@ namespace CustomRegionPOC.Console
                                         CityID = !propertyAddress.Table.Columns.Contains("cityid") ? string.Empty : propertyAddress["cityid"].ToString(),
                                         Zip = !propertyAddress.Table.Columns.Contains("zip") ? string.Empty : propertyAddress["zip"].ToString(),
                                         CountyID = !propertyAddress.Table.Columns.Contains("countyid") ? string.Empty : propertyAddress["countyid"].ToString(),
-                                        PropertyAddressLatitude = !propertyAddress.Table.Columns.Contains("latitude") ? string.Empty : propertyAddress["latitude"].ToString(),
-                                        PropertyAddressLongitude = !propertyAddress.Table.Columns.Contains("longitude") ? string.Empty : propertyAddress["longitude"].ToString(),
+                                        Latitude = !propertyAddress.Table.Columns.Contains("latitude") ? 0 : Convert.ToDecimal(propertyAddress["latitude"].ToString()),
+                                        Longitude = !propertyAddress.Table.Columns.Contains("longitude") ? 0 : Convert.ToDecimal(propertyAddress["longitude"].ToString()),
                                         PixelX = !propertyAddress.Table.Columns.Contains("pixelx") ? string.Empty : propertyAddress["pixelx"].ToString(),
                                         PixelY = !propertyAddress.Table.Columns.Contains("pixely") ? string.Empty : propertyAddress["pixely"].ToString(),
                                         LotSize = !propertyAddress.Table.Columns.Contains("lotsize") ? string.Empty : propertyAddress["lotsize"].ToString(),
@@ -204,36 +205,97 @@ namespace CustomRegionPOC.Console
                                         FullStreetAddress = !propertyAddress.Table.Columns.Contains("fullstreetaddress") ? string.Empty : propertyAddress["fullstreetaddress"].ToString()
                                     };
 
-            List<PointF> points = propertyMigration.Select(x => new PointF((float)Convert.ToDecimal(x.PropertyAddressLatitude), (float)Convert.ToDecimal(x.PropertyAddressLongitude))).ToList();
+            List<PointF> points = propertyMigration.Select(x => new PointF((float)Convert.ToDecimal(x.Latitude), (float)Convert.ToDecimal(x.Longitude))).ToList();
             List<Tile> tiles = regionServiceInstance.GetCoordinateTile(points);
 
 
 
-            Projection projection = new Projection() { ProjectionType = "INCLUDE" };
+            Projection projection = new Projection() { ProjectionType = "ALL" };
 
             List<LocalSecondaryIndex> localSecondaryIndexes = new List<LocalSecondaryIndex>();
+
+            List<KeySchemaElement> propertyAddressIDKeySchema = new List<KeySchemaElement>() {
+                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "PropertyAddressID", KeyType = KeyType.RANGE }
+            };
             localSecondaryIndexes.Add(new LocalSecondaryIndex()
             {
-                IndexName = "PropertyIDIndex",
-                Projection = projection
+                IndexName = "PropertyAddressIDIndex",
+                Projection = projection,
+                KeySchema = propertyAddressIDKeySchema
             });
 
-            List<string> nonKeyAttributes = new List<string>();
-            nonKeyAttributes.Add("PropertyAddressID");
-            nonKeyAttributes.Add("BathsFull");
-            nonKeyAttributes.Add("BathsHalf");
-            nonKeyAttributes.Add("Beds");
-            nonKeyAttributes.Add("AverageValue");
+            List<KeySchemaElement> bathsFullKeySchema = new List<KeySchemaElement>() {
+                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "BathsFull", KeyType = KeyType.RANGE }
+            };
+            localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            {
+                IndexName = "BathsFullIndex",
+                Projection = projection,
+                KeySchema = bathsFullKeySchema
+            });
 
-            projection.NonKeyAttributes = nonKeyAttributes;
+            List<KeySchemaElement> bathsHalfKeySchema = new List<KeySchemaElement>() {
+                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "BathsHalf", KeyType = KeyType.RANGE }
+            };
+            localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            {
+                IndexName = "BathsHalfIndex",
+                Projection = projection,
+                KeySchema = bathsHalfKeySchema
+            });
 
-            regionServiceInstance.CreateTempTable("tile_property_v2", localSecondaryIndexes, "Tile", "PropertyID").Wait();
+            List<KeySchemaElement> bedsKeySchema = new List<KeySchemaElement>() {
+                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "Beds", KeyType = KeyType.RANGE }
+            };
+            localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            {
+                IndexName = "BedsIndex",
+                Projection = projection,
+                KeySchema = bedsKeySchema
+            });
+
+            List<KeySchemaElement> areaIDKeySchema = new List<KeySchemaElement>() {
+                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "DefaultParentAreaID", KeyType = KeyType.RANGE }
+            };
+            localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            {
+                IndexName = "AreaIdIndex",
+                Projection = projection,
+                KeySchema = areaIDKeySchema
+            });
+
+            //List<string> nonKeyAttributes = new List<string>();
+            //nonKeyAttributes.Add("PropertyAddressID");
+            //nonKeyAttributes.Add("BathsFull");
+            //nonKeyAttributes.Add("BathsHalf");
+            //nonKeyAttributes.Add("Beds");
+            //nonKeyAttributes.Add("AverageValue");
+
+            //projection.NonKeyAttributes = nonKeyAttributes;
+
+            List<AttributeDefinition> attributeDefinition = new List<AttributeDefinition>()
+                {
+                    new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "PropertyID", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "PropertyAddressID", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "BathsFull", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "BathsHalf", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "Beds", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "DefaultParentAreaID", AttributeType = ScalarAttributeType.S }
+                };
+
+            regionServiceInstance.CreateTempTable("tile_property_v2", localSecondaryIndexes, attributeDefinition, "Tile", "PropertyID").Wait();
 
             object lockObj = new object();
             List<Property> properties = new List<Property>();
             Parallel.ForEach(propertyMigration, obj =>
            {
-               Tile tempTile = tiles.FirstOrDefault(x => x.Lat == (float)Convert.ToDecimal(obj.PropertyAddressLatitude) && x.Lng == (float)Convert.ToDecimal(obj.PropertyAddressLongitude));
+               Tile tempTile = tiles.FirstOrDefault(x => x.Lat == (float)obj.Latitude && x.Lng == (float)obj.Longitude);
 
                Property tempObj = (Property)obj.Clone();
 
@@ -241,8 +303,6 @@ namespace CustomRegionPOC.Console
                tempObj.Type = RecordType.Listing;
                tempObj.Guid = Guid.NewGuid().ToString();
                tempObj.Name = obj.PropertyAddressName;
-               tempObj.Latitude = Convert.ToDecimal(obj.PropertyAddressLatitude);
-               tempObj.Longitude = Convert.ToDecimal(obj.PropertyAddressLongitude);
 
                lock (lockObj)
                {
@@ -250,14 +310,19 @@ namespace CustomRegionPOC.Console
                }
            });
 
+
+            int count = 1;
             foreach (var obj in properties.ToList().ChunkBy(100))
             {
                 try
                 {
+                    System.Console.WriteLine("Initiating a new chunk. Index: " + count);
                     var batch = regionServiceInstance.context.CreateBatchWrite<Property>();
                     batch.AddPutItems(obj);
                     batch.ExecuteAsync().Wait();
-                    //regionServiceInstance.context.SaveAsync(obj).Wait();
+                    System.Console.WriteLine("Chunk inserted successfully. Index: " + count);
+
+                    count += 1;
                 }
                 catch (Exception e)
                 {
