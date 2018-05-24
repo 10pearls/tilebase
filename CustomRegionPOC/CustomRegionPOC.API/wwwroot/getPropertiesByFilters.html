@@ -155,8 +155,24 @@
         map.panTo(myLatlng);
     }
 
-    function getPropertiesByFilters() {
-        console.log('tada');
+    function getPropertiesByFilters(areaName, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent) {
+        console.log(areaName, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent);
+            
+            if (!areaName) {
+                throw new Error("area name needed");
+            }
+
+            var queryParams = "beds=" + beds + "&bathsFull=" + bathsFull + "&bathsHalf=" + bathsHalf;
+            queryParams = queryParams + "&propertyAddressId=" + propertyAddressId + "&averageValue=" + averageValue;
+            queryParams = queryParams + "&averageRent=" + averageRent;
+
+
+            var url = '/api/customregion/getArea/';
+            url += areaName;
+            url += '/?';
+            url += queryParams;
+            console.log(url);
+
 
     }
 
@@ -171,7 +187,7 @@
 <br><br>
 <!-- <button onclick="panMap()">Pan Map</button> -->
 <!-- City name: <input style="margin-left: 10px;" type="text" name="cityName" id="city"><br> -->
-Area Name: <select style="margin-left: 10px;">
+Area Name: <select style="margin-left: 10px;" name="areaName" id="areaName">
     <option value="Maryland">Maryland</option>
     <option value="DC Metro Area">DC Metro Area</option>
     <option value="Montgomery County">Montgomery County</option>
@@ -213,7 +229,15 @@ Average Value: <input style="margin-left: 10px;" type="text" name="averageValue"
 <br>
 Average Rent: <input style="margin-left: 10px;" type="text" name="averageRent" id="averageRent"><br>
 <br><br>
-<button onclick="getPropertiesByFilters()">Get Properties by Filters</button>
+<button onclick="getPropertiesByFilters(
+    document.getElementById('areaName').value,
+    document.getElementById('beds').value,
+    document.getElementById('bathsFull').value,
+    document.getElementById('bathsHalf').value,
+    document.getElementById('propertyAddressId').value,
+    document.getElementById('averageValue').value,
+    document.getElementById('averageRent').value
+    )">Get Properties by Filters</button>
 <br>
 </body>
 </html>
