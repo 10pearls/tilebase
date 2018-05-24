@@ -10,6 +10,8 @@ using CustomRegionPOC.Common.Helper;
 using CustomRegionPOC.Service;
 using System.Data;
 using System.Runtime.Serialization.Formatters.Binary;
+using Amazon.DynamoDBv2.Model;
+using CustomRegionPOC.Common.Extension;
 
 namespace CustomRegionPOC.Console
 {
@@ -59,7 +61,7 @@ namespace CustomRegionPOC.Console
 
         public static void migrateAreas(DataRow[] dtAreas)
         {
-            var areaMigration = dtAreas.Select(area => new AreaMigrationObject()
+            var areaMigration = dtAreas.Select(area => new Area()
             {
                 AreaID = area["AreaID"].ToString(),
                 AreaName = area["Name"].ToString(),
@@ -86,19 +88,19 @@ namespace CustomRegionPOC.Console
             });
 
 
-            List<AreaMigrationObject> areas = new List<AreaMigrationObject>();
-            foreach (AreaMigrationObject obj in areaMigration)
+            List<Area> areas = new List<Area>();
+            foreach (Area obj in areaMigration)
             {
                 obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lng = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
 
-                List<Tuple<PointF, PointF>> tuples = regionServiceInstance.generateTileTuples(obj.Points);
-                List<LocationPoint> rasterizePoints = regionServiceInstance.rasterize(tuples).Select(x => new LocationPoint() { Lat = x.X, Lng = x.Y }).ToList();
+                List<Tuple<PointF, PointF>> tuples = regionServiceInstance.GenerateTileTuples(obj.Points);
+                List<LocationPoint> rasterizePoints = regionServiceInstance.Rasterize(tuples).Select(x => new LocationPoint() { Lat = x.X, Lng = x.Y }).ToList();
 
 
                 foreach (var point in rasterizePoints)
                 {
-                    AreaMigrationObject tempObj = (AreaMigrationObject)obj.Clone();
-                    tempObj.Tile = regionServiceInstance.getTileStr((int)point.Lat, (int)point.Lng);
+                    Area tempObj = (Area)obj.Clone();
+                    tempObj.Tile = regionServiceInstance.GetTileStr((int)point.Lat, (int)point.Lng);
                     tempObj.Type = RecordType.Area;
                     tempObj.Guid = Guid.NewGuid().ToString();
                     tempObj.Name = obj.AreaName;
@@ -108,13 +110,13 @@ namespace CustomRegionPOC.Console
                 }
             }
 
-            regionServiceInstance.createTempTable("tile_area_v2").Wait();
+            regionServiceInstance.CreateTempTable("tile_area_v2", new List<LocalSecondaryIndex>()).Wait();
 
             foreach (var obj in areas.ToList().ChunkBy(100))
             {
                 try
                 {
-                    var batch = regionServiceInstance.context.CreateBatchWrite<AreaMigrationObject>();
+                    var batch = regionServiceInstance.context.CreateBatchWrite<Area>();
                     batch.AddPutItems(obj);
                     batch.ExecuteAsync().Wait();
                     //regionServiceInstance.context.SaveAsync(obj).Wait();
@@ -131,8 +133,8 @@ namespace CustomRegionPOC.Console
         public static void migrateProperty(DataRow[] dtProperties, DataRow[] dtPropertyAddresses)
         {
             var propertyMigration = from propertyAddress in dtPropertyAddresses.AsEnumerable()
-                                    join property in dtPropertyAddresses.AsEnumerable() on propertyAddress["PropertyAddressID"] equals property["PropertyAddressID"]
-                                    select new PropertyMigrationObject
+                                    join property in dtProperties.AsEnumerable() on propertyAddress["PropertyAddressID"] equals property["PropertyAddressID"]
+                                    select new Property
                                     {
                                         PropertyID = !property.Table.Columns.Contains("PropertyID") ? string.Empty : property["PropertyID"].ToString(),
                                         PropertyAddressID = !property.Table.Columns.Contains("PropertyAddressID") ? string.Empty : property["PropertyAddressID"].ToString(),
@@ -172,51 +174,70 @@ namespace CustomRegionPOC.Console
                                         PrimaryListingInstanceID = !property.Table.Columns.Contains("PrimaryListingInstanceID") ? string.Empty : property["PrimaryListingInstanceID"].ToString(),
                                         PropertyStatus = !property.Table.Columns.Contains("Status") ? string.Empty : property["Status"].ToString(),
 
-                                        StreetNumber = !property.Table.Columns.Contains("streetnumber") ? string.Empty : propertyAddress["streetnumber"].ToString(),
-                                        StreetDirPrefixID = !property.Table.Columns.Contains("streetdirprefixid") ? string.Empty : propertyAddress["streetdirprefixid"].ToString(),
-                                        StreetNameID = !property.Table.Columns.Contains("streetnameid") ? string.Empty : propertyAddress["streetnameid"].ToString(),
-                                        StreetDirSuffixID = !property.Table.Columns.Contains("streetdirsuffixid") ? string.Empty : propertyAddress["streetdirsuffixid"].ToString(),
-                                        StreetSuffixID = !property.Table.Columns.Contains("streetsuffixid") ? string.Empty : propertyAddress["streetsuffixid"].ToString(),
-                                        CityID = !property.Table.Columns.Contains("cityid") ? string.Empty : propertyAddress["cityid"].ToString(),
-                                        Zip = !property.Table.Columns.Contains("zip") ? string.Empty : propertyAddress["zip"].ToString(),
-                                        CountyID = !property.Table.Columns.Contains("countyid") ? string.Empty : propertyAddress["countyid"].ToString(),
-                                        PropertyAddressLatitude = !property.Table.Columns.Contains("latitude") ? string.Empty : propertyAddress["latitude"].ToString(),
-                                        PropertyAddressLongitude = !property.Table.Columns.Contains("longitude") ? string.Empty : propertyAddress["longitude"].ToString(),
-                                        PixelX = !property.Table.Columns.Contains("pixelx") ? string.Empty : propertyAddress["pixelx"].ToString(),
-                                        PixelY = !property.Table.Columns.Contains("pixely") ? string.Empty : propertyAddress["pixely"].ToString(),
-                                        LotSize = !property.Table.Columns.Contains("lotsize") ? string.Empty : propertyAddress["lotsize"].ToString(),
-                                        PropertyAddressName = !property.Table.Columns.Contains("Status") ? string.Empty : propertyAddress["name"].ToString(),
-                                        PropertyAddressStories = !property.Table.Columns.Contains("name") ? string.Empty : propertyAddress["stories"].ToString(),
-                                        PropertyAddressStatus = !property.Table.Columns.Contains("status") ? string.Empty : propertyAddress["status"].ToString(),
-                                        propertyAddressCount = !property.Table.Columns.Contains("propertyAddresscount") ? string.Empty : propertyAddress["propertyAddresscount"].ToString(),
-                                        YearBuiltMin = !property.Table.Columns.Contains("yearbuiltmin") ? string.Empty : propertyAddress["yearbuiltmin"].ToString(),
-                                        YearBuiltMax = !property.Table.Columns.Contains("yearbuiltmax") ? string.Empty : propertyAddress["yearbuiltmax"].ToString(),
-                                        AverageValue = !property.Table.Columns.Contains("averagevalue") ? string.Empty : propertyAddress["averagevalue"].ToString(),
-                                        AverageValueLow = !property.Table.Columns.Contains("averagevaluelow") ? string.Empty : propertyAddress["averagevaluelow"].ToString(),
-                                        AverageValueHigh = !property.Table.Columns.Contains("averagevaluehigh") ? string.Empty : propertyAddress["averagevaluehigh"].ToString(),
-                                        AverageRent = !property.Table.Columns.Contains("averagerent") ? string.Empty : propertyAddress["averagerent"].ToString(),
-                                        AverageSqFt = !property.Table.Columns.Contains("averagesqft") ? string.Empty : propertyAddress["averagesqft"].ToString(),
-                                        AverageValuePerSqFt = !property.Table.Columns.Contains("averagevaluepersqft") ? string.Empty : propertyAddress["averagevaluepersqft"].ToString(),
-                                        DefaultParentAreaID = !property.Table.Columns.Contains("defaultparentareaid") ? string.Empty : propertyAddress["defaultparentareaid"].ToString(),
-                                        Url = !property.Table.Columns.Contains("url") ? string.Empty : propertyAddress["url"].ToString(),
-                                        FullStreetAddress = !property.Table.Columns.Contains("fullstreetaddress") ? string.Empty : propertyAddress["fullstreetaddress"].ToString()
+                                        StreetNumber = !propertyAddress.Table.Columns.Contains("streetnumber") ? string.Empty : propertyAddress["streetnumber"].ToString(),
+                                        StreetDirPrefixID = !propertyAddress.Table.Columns.Contains("streetdirprefixid") ? string.Empty : propertyAddress["streetdirprefixid"].ToString(),
+                                        StreetNameID = !propertyAddress.Table.Columns.Contains("streetnameid") ? string.Empty : propertyAddress["streetnameid"].ToString(),
+                                        StreetDirSuffixID = !propertyAddress.Table.Columns.Contains("streetdirsuffixid") ? string.Empty : propertyAddress["streetdirsuffixid"].ToString(),
+                                        StreetSuffixID = !propertyAddress.Table.Columns.Contains("streetsuffixid") ? string.Empty : propertyAddress["streetsuffixid"].ToString(),
+                                        CityID = !propertyAddress.Table.Columns.Contains("cityid") ? string.Empty : propertyAddress["cityid"].ToString(),
+                                        Zip = !propertyAddress.Table.Columns.Contains("zip") ? string.Empty : propertyAddress["zip"].ToString(),
+                                        CountyID = !propertyAddress.Table.Columns.Contains("countyid") ? string.Empty : propertyAddress["countyid"].ToString(),
+                                        PropertyAddressLatitude = !propertyAddress.Table.Columns.Contains("latitude") ? string.Empty : propertyAddress["latitude"].ToString(),
+                                        PropertyAddressLongitude = !propertyAddress.Table.Columns.Contains("longitude") ? string.Empty : propertyAddress["longitude"].ToString(),
+                                        PixelX = !propertyAddress.Table.Columns.Contains("pixelx") ? string.Empty : propertyAddress["pixelx"].ToString(),
+                                        PixelY = !propertyAddress.Table.Columns.Contains("pixely") ? string.Empty : propertyAddress["pixely"].ToString(),
+                                        LotSize = !propertyAddress.Table.Columns.Contains("lotsize") ? string.Empty : propertyAddress["lotsize"].ToString(),
+                                        PropertyAddressName = !propertyAddress.Table.Columns.Contains("Status") ? string.Empty : propertyAddress["name"].ToString(),
+                                        PropertyAddressStories = !propertyAddress.Table.Columns.Contains("name") ? string.Empty : propertyAddress["stories"].ToString(),
+                                        PropertyAddressStatus = !propertyAddress.Table.Columns.Contains("status") ? string.Empty : propertyAddress["status"].ToString(),
+                                        propertyAddressCount = !propertyAddress.Table.Columns.Contains("propertyAddresscount") ? string.Empty : propertyAddress["propertyAddresscount"].ToString(),
+                                        YearBuiltMin = !propertyAddress.Table.Columns.Contains("yearbuiltmin") ? string.Empty : propertyAddress["yearbuiltmin"].ToString(),
+                                        YearBuiltMax = !propertyAddress.Table.Columns.Contains("yearbuiltmax") ? string.Empty : propertyAddress["yearbuiltmax"].ToString(),
+                                        AverageValue = !propertyAddress.Table.Columns.Contains("averagevalue") ? string.Empty : propertyAddress["averagevalue"].ToString(),
+                                        AverageValueLow = !propertyAddress.Table.Columns.Contains("averagevaluelow") ? string.Empty : propertyAddress["averagevaluelow"].ToString(),
+                                        AverageValueHigh = !propertyAddress.Table.Columns.Contains("averagevaluehigh") ? string.Empty : propertyAddress["averagevaluehigh"].ToString(),
+                                        AverageRent = !propertyAddress.Table.Columns.Contains("averagerent") ? string.Empty : propertyAddress["averagerent"].ToString(),
+                                        AverageSqFt = !propertyAddress.Table.Columns.Contains("averagesqft") ? string.Empty : propertyAddress["averagesqft"].ToString(),
+                                        AverageValuePerSqFt = !propertyAddress.Table.Columns.Contains("averagevaluepersqft") ? string.Empty : propertyAddress["averagevaluepersqft"].ToString(),
+                                        DefaultParentAreaID = !propertyAddress.Table.Columns.Contains("defaultparentareaid") ? string.Empty : propertyAddress["defaultparentareaid"].ToString(),
+                                        Url = !propertyAddress.Table.Columns.Contains("url") ? string.Empty : propertyAddress["url"].ToString(),
+                                        FullStreetAddress = !propertyAddress.Table.Columns.Contains("fullstreetaddress") ? string.Empty : propertyAddress["fullstreetaddress"].ToString()
                                     };
 
             List<PointF> points = propertyMigration.Select(x => new PointF((float)Convert.ToDecimal(x.PropertyAddressLatitude), (float)Convert.ToDecimal(x.PropertyAddressLongitude))).ToList();
-            List<Tile> tiles = regionServiceInstance.getCoordinateTile(points);
+            List<Tile> tiles = regionServiceInstance.GetCoordinateTile(points);
 
 
-            regionServiceInstance.createTempTable("tile_property_v2").Wait();
+
+            Projection projection = new Projection() { ProjectionType = "INCLUDE" };
+
+            List<LocalSecondaryIndex> localSecondaryIndexes = new List<LocalSecondaryIndex>();
+            localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            {
+                IndexName = "PropertyIDIndex",
+                Projection = projection
+            });
+
+            List<string> nonKeyAttributes = new List<string>();
+            nonKeyAttributes.Add("PropertyAddressID");
+            nonKeyAttributes.Add("BathsFull");
+            nonKeyAttributes.Add("BathsHalf");
+            nonKeyAttributes.Add("Beds");
+            nonKeyAttributes.Add("AverageValue");
+
+            projection.NonKeyAttributes = nonKeyAttributes;
+
+            regionServiceInstance.CreateTempTable("tile_property_v2", localSecondaryIndexes, "Tile", "PropertyID").Wait();
 
             object lockObj = new object();
-            List<PropertyMigrationObject> properties = new List<PropertyMigrationObject>();
+            List<Property> properties = new List<Property>();
             Parallel.ForEach(propertyMigration, obj =>
            {
                Tile tempTile = tiles.FirstOrDefault(x => x.Lat == (float)Convert.ToDecimal(obj.PropertyAddressLatitude) && x.Lng == (float)Convert.ToDecimal(obj.PropertyAddressLongitude));
 
-               PropertyMigrationObject tempObj = (PropertyMigrationObject)obj.Clone();
+               Property tempObj = (Property)obj.Clone();
 
-               tempObj.Tile = regionServiceInstance.getTileStr((int)tempTile.Row, (int)tempTile.Column);
+               tempObj.Tile = regionServiceInstance.GetTileStr((int)tempTile.Row, (int)tempTile.Column);
                tempObj.Type = RecordType.Listing;
                tempObj.Guid = Guid.NewGuid().ToString();
                tempObj.Name = obj.PropertyAddressName;
@@ -233,7 +254,7 @@ namespace CustomRegionPOC.Console
             {
                 try
                 {
-                    var batch = regionServiceInstance.context.CreateBatchWrite<PropertyMigrationObject>();
+                    var batch = regionServiceInstance.context.CreateBatchWrite<Property>();
                     batch.AddPutItems(obj);
                     batch.ExecuteAsync().Wait();
                     //regionServiceInstance.context.SaveAsync(obj).Wait();
