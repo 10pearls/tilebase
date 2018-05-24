@@ -49,9 +49,9 @@ namespace CustomRegionPOC.Console
                 DataRow[] dtProperties = csvHelper.parseAreaCsv(propertiesPath).Rows.Cast<DataRow>().ToArray();
                 DataRow[] dtPropertyAddresses = csvHelper.parseAreaCsv(propertyAddressPath).Rows.Cast<DataRow>().ToArray();
 
-                //migrateAreas(dtAreas);
+                migrateAreas(dtAreas);
 
-                migrateProperty(dtProperties, dtPropertyAddresses);
+                //migrateProperty(dtProperties, dtPropertyAddresses);
             }
             catch (Exception ex)
             {
@@ -62,32 +62,44 @@ namespace CustomRegionPOC.Console
 
         public static void migrateAreas(DataRow[] dtAreas)
         {
+            // foreach(var area in dtAreas) {
+            //     System.Console.WriteLine(area);
+            //     System.Console.WriteLine(area[0]);
+            //     System.Console.WriteLine(area["AreaID"]);
+            // }
             var areaMigration = dtAreas.Select(area => new Area()
             {
-                AreaID = area["AreaID"].ToString(),
-                AreaName = area["Name"].ToString(),
-                URLName = area["URLName"].ToString(),
-                URLPath = area["URLPath"].ToString(),
-                StateFIPS = area["StateFIPS"].ToString(),
-                FIPS = area["FIPS"].ToString(),
-                State = area["State"].ToString(),
-                USPSCity = area["USPSCity"].ToString(),
-                AreaTypeID = area["AreaTypeID"].ToString(),
-                SubTypeID = area["SubTypeID"].ToString(),
-                OriginalPolygon = area["OriginalPolygon"].ToString(),
-                OriginalPolygonArea = area["OriginalPolygonArea"].ToString(),
-                Latitude = Convert.ToDecimal(area["Latitude"].ToString()),
-                Longitude = Convert.ToDecimal(area["Longitude"].ToString()),
-                North = area["North"].ToString(),
-                South = area["South"].ToString(),
-                East = area["East"].ToString(),
-                West = area["West"].ToString(),
-                TopLeveeaID = area["TopLeveeaID"].ToString(),
-                SourceID = area["SourceID"].ToString(),
-                SourceKey = area["SourceKey"].ToString(),
-                AreaStatus = !area.Table.Columns.Contains("Status") ? string.Empty : area["Status"].ToString(),
+                AreaID = area[0].ToString(),
+                AreaName = area[1].ToString(),
+                URLName = area[2].ToString(),
+                URLPath = area[3].ToString(),
+                StateFIPS = area[4].ToString(),
+                FIPS = area[5].ToString(),
+                State = area[6].ToString(),
+                USPSCity = area[7].ToString(),
+                AreaTypeID = area[8].ToString(),
+                SubTypeID = area[9].ToString(),
+                OriginalPolygon = area[10].ToString(),
+                OriginalPolygonArea = area[11].ToString(),
+                Latitude = Convert.ToDecimal(area[12].ToString()),
+                Longitude = Convert.ToDecimal(area[13].ToString()),
+                North = area[14].ToString(),
+                South = area[15].ToString(),
+                East = area[16].ToString(),
+                West = area[17].ToString(),
+                TopLeveeaID = area[18].ToString(),
+                SourceID = area[19].ToString(),
+                SourceKey = area[20].ToString(),
+                AreaStatus = !area.Table.Columns.Contains("Status") ? string.Empty : area[21].ToString(),
             });
 
+            var areaListingMigration = dtAreas.Select(area => new AreaListing()
+            {
+                GUID = Guid.NewGuid().ToString(),
+                AreaID = area[0].ToString(),
+                AreaName = area[1].ToString(),
+                OriginalPolygon = area[10].ToString()
+            });
 
             List<Area> areas = new List<Area>();
             foreach (Area obj in areaMigration)
@@ -96,7 +108,6 @@ namespace CustomRegionPOC.Console
 
                 List<Tuple<PointF, PointF>> tuples = regionServiceInstance.GenerateTileTuples(obj.Points);
                 List<LocationPoint> rasterizePoints = regionServiceInstance.Rasterize(tuples).Select(x => new LocationPoint() { Lat = x.X, Lng = x.Y }).ToList();
-
 
                 foreach (var point in rasterizePoints)
                 {
@@ -111,15 +122,46 @@ namespace CustomRegionPOC.Console
                 }
             }
 
+            List<AreaListing> areaListings = new List<AreaListing>();
+            foreach (AreaListing obj in areaListingMigration)
+            {
+                obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lng = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
+                obj.OriginalPolygon = "";
+                areaListings.Add(obj);
+            }
+
             regionServiceInstance.CreateTempTable("tile_area_v2", null, null).Wait();
+            regionServiceInstance.CreateTempTable("tile_area_listing_v2", null, null).Wait();
 
             foreach (var obj in areas.ToList().ChunkBy(100))
             {
                 try
                 {
+                    System.Console.WriteLine("adding Area chunk");
                     var batch = regionServiceInstance.context.CreateBatchWrite<Area>();
                     batch.AddPutItems(obj);
                     batch.ExecuteAsync().Wait();
+                    System.Console.WriteLine("Area Chunk added");
+                    //regionServiceInstance.context.SaveAsync(obj).Wait();
+                }
+                catch (Exception e)
+                {
+                    System.Console.WriteLine(obj);
+                    System.Console.WriteLine(e);
+                }
+            }
+
+            foreach (var obj in areaListings.ToList().ChunkBy(100))
+            {
+                try
+                {
+                    
+                    System.Console.WriteLine("adding Area Listing chunk");
+                    var batch = regionServiceInstance.context.CreateBatchWrite<AreaListing>();
+                    batch.AddPutItems(obj);
+                    batch.ExecuteAsync().Wait();
+                    
+                    System.Console.WriteLine("Area Listing Chunk added");
                     //regionServiceInstance.context.SaveAsync(obj).Wait();
                 }
                 catch (Exception e)
