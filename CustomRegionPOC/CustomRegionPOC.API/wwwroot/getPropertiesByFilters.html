@@ -18,6 +18,7 @@
             padding: 0;
         }
     </style>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 </head>
 <body>
 <div id="map"></div>
@@ -38,6 +39,7 @@
     var map;
     var tilelayer;
     var mapOnClickEvent;
+    var areaData;
 
     function initMap() {
         map = new google.maps.Map(document.getElementById('map'), {
@@ -131,6 +133,16 @@
 
         // google.maps.event.addListener(map, 'click', mapOnClickEvent);
 
+        $.getJSON("api/CustomRegion/GetAllAreas", function(json){
+            areaData = json;
+        $('#areaName').empty();
+        $('#areaName').append($('<option>').text("Select"));
+        $.each(json, function(i, obj){
+            
+        $('#areaName').append($('<option>').text(obj.areaName).attr('value', obj.areaID));
+        });
+        });
+
     }
 
     function newMap() {
@@ -187,35 +199,9 @@
 <br><br>
 <!-- <button onclick="panMap()">Pan Map</button> -->
 <!-- City name: <input style="margin-left: 10px;" type="text" name="cityName" id="city"><br> -->
-Area Name: <select style="margin-left: 10px;" name="areaName" id="areaName">
-    <option value="Maryland">Maryland</option>
-    <option value="DC Metro Area">DC Metro Area</option>
-    <option value="Montgomery County">Montgomery County</option>
-    <option value="Bethesda">Bethesda</option>
-    <option value="Brookmont">Brookmont</option>
-    <option value="Cabin John">Cabin John</option>
-    <option value="Chevy Chase">Chevy Chase</option>
-    <option value="Chevy Chase Section Five">Chevy Chase Section Five</option>
-    <option value="Chevy Chase Section Three">Chevy Chase Section Three</option>
-    <option value="Chevy Chase Village">Chevy Chase Village</option>
-    <option value="Friendship Heights Village">Friendship Heights Village</option>
-    <option value="Garrett Park">Garrett Park</option>
-    <option value="Glen Echo">Glen Echo</option>
-    <option value="Martins Additions">Martins Additions</option>
-    <option value="North Bethesda">North Bethesda</option>
-    <option value="North Chevy Chase">North Chevy Chase</option>
-    <option value="Potomac">Potomac</option>
-    <option value="Silver Spring">Silver Spring</option>
-    <option value="Somerset">Somerset</option>
-    <option value="South-Kensington">South-Kensington</option>
-    <option value="20814">20814</option>
-    <option value="20815">20815</option>
-    <option value="20816">20816</option>
-    <option value="20817">20817</option>
-    <option value="20889">20889</option>
-    <option value="20892">20892</option>
-    <option value="20894">20894</option>
-    </select>
+
+<select class="form-control select2" id="areaName"></select>
+
 <br><br>
 Beds: <input style="margin-left: 40px;" type="text" name="beds" id="beds"><br>
 <br>
