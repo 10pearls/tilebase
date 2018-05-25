@@ -158,14 +158,18 @@ namespace CustomRegionPOC.Service
                 ExpressionAttributeValues = expressionAttributeValues
             };
 
+            DateTime startDate = DateTime.Now;
+
             var response = await dynamoDBClient.QueryAsync(request);
+
+            DateTime endDate = DateTime.Now;
 
             areaProperties = Property.ConvertToEntity(response.Items);
 
             return new
             {
                 Area = listingArea,
-                Properties = areaProperties
+                Properties = (endDate - startDate).TotalMilliseconds
             };
         }
 
