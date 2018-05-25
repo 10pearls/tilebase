@@ -49,9 +49,9 @@ namespace CustomRegionPOC.Console
                 DataRow[] dtProperties = csvHelper.parseAreaCsv(propertiesPath).Rows.Cast<DataRow>().ToArray();
                 DataRow[] dtPropertyAddresses = csvHelper.parseAreaCsv(propertyAddressPath).Rows.Cast<DataRow>().ToArray();
 
-                migrateAreas(dtAreas);
+                //migrateAreas(dtAreas);
 
-                //migrateProperty(dtProperties, dtPropertyAddresses);
+                migrateProperty(dtProperties, dtPropertyAddresses);
             }
             catch (Exception ex)
             {
@@ -158,7 +158,7 @@ namespace CustomRegionPOC.Console
                 KeySchema = areaIDKeySchema
             });
 
-            regionServiceInstance.CreateTempTable("tile_area_v2", localSecondaryIndexes, areaAttributeDefinition, "Tile", "AreaID").Wait();
+            regionServiceInstance.CreateTempTable("tile_area_v2", areaAttributeDefinition, null, localSecondaryIndexes, "Tile", "AreaID").Wait();
 
 
 
@@ -184,7 +184,7 @@ namespace CustomRegionPOC.Console
                 new AttributeDefinition { AttributeName = "AreaName", AttributeType = ScalarAttributeType.S }
             };
 
-            regionServiceInstance.CreateTempTable("tile_area_listing_v2", areaListingLocalSecondaryIndexes, areaListingAttributeDefinition, "AreaID", "AreaName").Wait();
+            regionServiceInstance.CreateTempTable("tile_area_listing_v2", areaListingAttributeDefinition, null, areaListingLocalSecondaryIndexes, "AreaID", "AreaName").Wait();
 
             foreach (var obj in areaListings.ToList().ChunkBy(100))
             {
@@ -318,6 +318,7 @@ namespace CustomRegionPOC.Console
             List<string> nonKeyAttributes = new List<string>();
 
             nonKeyAttributes.Add("AreaID");
+            nonKeyAttributes.Add("PropertyID");
             nonKeyAttributes.Add("PropertyAddressID");
             nonKeyAttributes.Add("BathsFull");
             nonKeyAttributes.Add("BathsHalf");
@@ -331,8 +332,8 @@ namespace CustomRegionPOC.Console
             List<LocalSecondaryIndex> localSecondaryIndexes = new List<LocalSecondaryIndex>();
 
             List<KeySchemaElement> propertyAddressIDKeySchema = new List<KeySchemaElement>() {
-                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.RANGE }
+                new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "PropertyID", KeyType = KeyType.RANGE }
             };
             localSecondaryIndexes.Add(new LocalSecondaryIndex()
             {
@@ -399,7 +400,7 @@ namespace CustomRegionPOC.Console
 
             List<AttributeDefinition> attributeDefinition = new List<AttributeDefinition>()
                 {
-                    new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "PropertyID", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
                     //new AttributeDefinition { AttributeName = "PropertyAddressID", AttributeType = ScalarAttributeType.S },
@@ -411,7 +412,8 @@ namespace CustomRegionPOC.Console
                     //new AttributeDefinition { AttributeName = "Longitude", AttributeType = ScalarAttributeType.S },
                 };
 
-            regionServiceInstance.CreateTempTable("tile_property_v2", localSecondaryIndexes, attributeDefinition, "Tile", "PropertyID").Wait();
+            regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, null, localSecondaryIndexes, "AreaID", "PropertyID").Wait();
+            //regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, null, localSecondaryIndexes, "Tile", "PropertyID").Wait();
 
             object lockObj = new object();
             List<Property> properties = new List<Property>();

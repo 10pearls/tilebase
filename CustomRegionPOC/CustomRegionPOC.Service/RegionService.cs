@@ -37,7 +37,7 @@ namespace CustomRegionPOC.Service
             var credentials = new BasicAWSCredentials(configuration["AWS:AccessKey"], configuration["AWS:SecretKey"]);
             this.dynamoDBClient = new AmazonDynamoDBClient(credentials, RegionEndpoint.USEast1);
 
-            CreateTempTable("tile_listing_region_v2", null, null).Wait();
+            CreateTempTable("tile_listing_region_v2", null, null, null).Wait();
 
             context = new DynamoDBContext(this.dynamoDBClient);
 
@@ -150,17 +150,17 @@ namespace CustomRegionPOC.Service
 
 
 
-            var request = new ScanRequest
+            var request = new QueryRequest
             {
                 TableName = propertyTableName,
                 IndexName = "AreaIDIndex",
-                FilterExpression = keyConditionExpression,
+                KeyConditionExpression = keyConditionExpression,
                 ExpressionAttributeValues = expressionAttributeValues
             };
 
-            var response = await dynamoDBClient.ScanAsync(request);
+            var response = await dynamoDBClient.QueryAsync(request);
 
-             areaProperties = Property.ConvertToEntity(response.Items);
+            areaProperties = Property.ConvertToEntity(response.Items);
 
             return new
             {
@@ -170,12 +170,17 @@ namespace CustomRegionPOC.Service
         }
 
         #region Public Function
-        public async Task CreateTempTable(string tableName, List<LocalSecondaryIndex> localSecondaryIndexes, List<AttributeDefinition> attributeDefinition, string hashKey = "Tile", string SortKey = "Guid")
+        public async Task CreateTempTable(string tableName, List<AttributeDefinition> attributeDefinition, List<GlobalSecondaryIndex> globalSecondaryIndexes, List<LocalSecondaryIndex> localSecondaryIndexes, string hashKey = "Tile", string SortKey = "Guid")
         {
             List<KeySchemaElement> keySchema = new List<KeySchemaElement>() {
                 new KeySchemaElement { AttributeName = hashKey, KeyType = KeyType.HASH },
                 new KeySchemaElement { AttributeName = SortKey, KeyType = KeyType.RANGE }
             };
+
+            if (globalSecondaryIndexes == null)
+            {
+                globalSecondaryIndexes = new List<GlobalSecondaryIndex>();
+            }
 
             if (localSecondaryIndexes == null)
             {
@@ -205,7 +210,8 @@ namespace CustomRegionPOC.Service
                     },
                     KeySchema = keySchema,
                     AttributeDefinitions = attributeDefinition,
-                    LocalSecondaryIndexes = localSecondaryIndexes
+                    LocalSecondaryIndexes = localSecondaryIndexes,
+                    GlobalSecondaryIndexes = globalSecondaryIndexes
                 });
 
 
