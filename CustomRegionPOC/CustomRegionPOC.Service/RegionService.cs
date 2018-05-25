@@ -150,7 +150,7 @@ namespace CustomRegionPOC.Service
             object lockObj = new object();
 
             DateTime startDate = DateTime.Now;
-            int totalSegments = 100;
+            int totalSegments = 10;
             Parallel.For(0, totalSegments, segment =>
             {
 
@@ -181,7 +181,7 @@ namespace CustomRegionPOC.Service
             {
                 Area = listingArea,
                 PropertyCount = areaProperties.Count(),
-                Properties = areaProperties,
+                //Properties = areaProperties,
                 TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
             };
         }
