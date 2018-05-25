@@ -169,6 +169,7 @@ namespace CustomRegionPOC.Service
             return new
             {
                 Area = listingArea,
+                PropertyCount = areaProperties.Count(),
                 Properties = (endDate - startDate).TotalMilliseconds
             };
         }
