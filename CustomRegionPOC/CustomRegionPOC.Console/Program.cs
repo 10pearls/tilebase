@@ -332,7 +332,7 @@ namespace CustomRegionPOC.Console
             List<LocalSecondaryIndex> localSecondaryIndexes = new List<LocalSecondaryIndex>();
 
             List<KeySchemaElement> propertyAddressIDKeySchema = new List<KeySchemaElement>() {
-                new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "Guid", KeyType = KeyType.HASH },
                 new KeySchemaElement { AttributeName = "PropertyID", KeyType = KeyType.RANGE }
             };
             localSecondaryIndexes.Add(new LocalSecondaryIndex()
@@ -402,7 +402,8 @@ namespace CustomRegionPOC.Console
                 {
                     //new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "PropertyID", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "Guid", AttributeType = ScalarAttributeType.S },
                     //new AttributeDefinition { AttributeName = "PropertyAddressID", AttributeType = ScalarAttributeType.S },
                     //new AttributeDefinition { AttributeName = "BathsFull", AttributeType = ScalarAttributeType.S },
                     //new AttributeDefinition { AttributeName = "BathsHalf", AttributeType = ScalarAttributeType.S },
@@ -412,27 +413,35 @@ namespace CustomRegionPOC.Console
                     //new AttributeDefinition { AttributeName = "Longitude", AttributeType = ScalarAttributeType.S },
                 };
 
-            regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, null, localSecondaryIndexes, "AreaID", "PropertyID").Wait();
+            regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, null, localSecondaryIndexes, "Guid", "PropertyID").Wait();
             //regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, null, localSecondaryIndexes, "Tile", "PropertyID").Wait();
 
             object lockObj = new object();
+            int index = 0;
             List<Property> properties = new List<Property>();
-            Parallel.ForEach(propertyMigration, obj =>
-           {
-               Tile tempTile = tiles.FirstOrDefault(x => x.Lat == (float)obj.Latitude && x.Lng == (float)obj.Longitude);
+            foreach (var obj in propertyMigration)
+            {
+                Tile tempTile = tiles.FirstOrDefault(x => x.Lat == (float)obj.Latitude && x.Lng == (float)obj.Longitude);
 
-               Property tempObj = (Property)obj.Clone();
+                Property tempObj = (Property)obj.Clone();
 
-               tempObj.Tile = regionServiceInstance.GetTileStr((int)tempTile.Row, (int)tempTile.Column);
-               tempObj.Type = RecordType.Listing;
-               tempObj.Guid = Guid.NewGuid().ToString();
-               tempObj.Name = obj.PropertyAddressName;
+                tempObj.Tile = regionServiceInstance.GetTileStr((int)tempTile.Row, (int)tempTile.Column);
+                tempObj.Type = RecordType.Listing;
+                tempObj.Guid = Guid.NewGuid().ToString();
+                tempObj.Name = obj.PropertyAddressName;
 
-               lock (lockObj)
-               {
-                   properties.Add(tempObj);
-               }
-           });
+                lock (lockObj)
+                {
+                    properties.Add(tempObj);
+                }
+
+                index += 1;
+
+                if (index == 16)
+                {
+                    index = 0;
+                }
+            };
 
 
             int count = 1;

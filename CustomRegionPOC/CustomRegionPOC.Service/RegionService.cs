@@ -150,17 +150,17 @@ namespace CustomRegionPOC.Service
 
 
 
-            var request = new QueryRequest
+            var request = new ScanRequest
             {
                 TableName = propertyTableName,
                 IndexName = "AreaIDIndex",
-                KeyConditionExpression = keyConditionExpression,
+                FilterExpression = keyConditionExpression,
                 ExpressionAttributeValues = expressionAttributeValues
             };
 
             DateTime startDate = DateTime.Now;
 
-            var response = await dynamoDBClient.QueryAsync(request);
+            var response = await dynamoDBClient.ScanAsync(request);
 
             DateTime endDate = DateTime.Now;
 
