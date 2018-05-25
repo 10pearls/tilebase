@@ -403,7 +403,7 @@ namespace CustomRegionPOC.Console
                     //new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "PropertyID", AttributeType = ScalarAttributeType.S },
                     //new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "Guid", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "Guid", AttributeType = ScalarAttributeType.N },
                     //new AttributeDefinition { AttributeName = "PropertyAddressID", AttributeType = ScalarAttributeType.S },
                     //new AttributeDefinition { AttributeName = "BathsFull", AttributeType = ScalarAttributeType.S },
                     //new AttributeDefinition { AttributeName = "BathsHalf", AttributeType = ScalarAttributeType.S },
@@ -419,6 +419,7 @@ namespace CustomRegionPOC.Console
             object lockObj = new object();
             int index = 0;
             List<Property> properties = new List<Property>();
+            Random rnd = new Random();
             foreach (var obj in propertyMigration)
             {
                 Tile tempTile = tiles.FirstOrDefault(x => x.Lat == (float)obj.Latitude && x.Lng == (float)obj.Longitude);
@@ -427,20 +428,11 @@ namespace CustomRegionPOC.Console
 
                 tempObj.Tile = regionServiceInstance.GetTileStr((int)tempTile.Row, (int)tempTile.Column);
                 tempObj.Type = RecordType.Listing;
-                tempObj.Guid = Guid.NewGuid().ToString();
+                tempObj.Guid = rnd.Next(1,16);
                 tempObj.Name = obj.PropertyAddressName;
+                properties.Add(tempObj);
 
-                lock (lockObj)
-                {
-                    properties.Add(tempObj);
-                }
 
-                index += 1;
-
-                if (index == 16)
-                {
-                    index = 0;
-                }
             };
 
 

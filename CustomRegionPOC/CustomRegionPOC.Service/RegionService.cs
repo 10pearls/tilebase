@@ -150,30 +150,15 @@ namespace CustomRegionPOC.Service
             object lockObj = new object();
 
             DateTime startDate = DateTime.Now;
-            int totalSegments = 10;
-            Parallel.For(0, totalSegments, segment =>
+            var request = new ScanRequest
             {
-
-                var request = new ScanRequest
-                {
-                    TableName = propertyTableName,
-                    IndexName = "AreaIDIndex",
-                    FilterExpression = keyConditionExpression,
-                    ExpressionAttributeValues = expressionAttributeValues,
-                    TotalSegments = totalSegments,
-                    Segment = segment
-                };
-
-
-                var response = dynamoDBClient.ScanAsync(request).Result;
-
-                var finalResult = Property.ConvertToEntity(response.Items);
-
-                lock (lockObj)
-                {
-                    areaProperties.AddRange(finalResult);
-                }
-            });
+                TableName = propertyTableName,
+                IndexName = "AreaIDIndex",
+                FilterExpression = keyConditionExpression,
+                ExpressionAttributeValues = expressionAttributeValues
+            };
+            var response = dynamoDBClient.ScanAsync(request).Result;
+            areaProperties = Property.ConvertToEntity(response.Items);
 
             DateTime endDate = DateTime.Now;
 
@@ -181,7 +166,7 @@ namespace CustomRegionPOC.Service
             {
                 Area = listingArea,
                 PropertyCount = areaProperties.Count(),
-                //Properties = areaProperties,
+                Properties = areaProperties,
                 TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
             };
         }

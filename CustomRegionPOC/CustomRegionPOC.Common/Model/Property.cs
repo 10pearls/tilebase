@@ -156,7 +156,7 @@ namespace CustomRegionPOC.Common.Model
 
         public decimal Longitude { get; set; }
 
-        public string Guid { get; set; }
+        public int Guid { get; set; }
 
         public List<LocationPoint> Points { get; set; }
 
