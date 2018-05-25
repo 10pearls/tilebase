@@ -1,6 +1,9 @@
 ﻿using Amazon.DynamoDBv2.DataModel;
+using Amazon.DynamoDBv2.Model;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace CustomRegionPOC.Common.Model
@@ -104,7 +107,7 @@ namespace CustomRegionPOC.Common.Model
         public string Zip { get; set; }
 
         public string CountyID { get; set; }
-        
+
         public string PixelX { get; set; }
 
         public string PixelY { get; set; }
@@ -135,7 +138,7 @@ namespace CustomRegionPOC.Common.Model
 
         public string AverageValuePerSqFt { get; set; }
 
-        public string DefaultParentAreaID { get; set; }
+        public string AreaID { get; set; }
 
         public string Url { get; set; }
 
@@ -158,6 +161,42 @@ namespace CustomRegionPOC.Common.Model
         public List<LocationPoint> Points { get; set; }
 
         public List<Tile> Tiles { get; set; }
+
+        public static Property ConvertToEntity(Dictionary<string, AttributeValue> item)
+        {
+            Property tempObj = new Property();
+            Type type = tempObj.GetType();
+
+            foreach (string attr in item.Keys)
+            {
+                if (attr == "Longitude")
+                {
+                    tempObj.Longitude = Convert.ToDecimal(item[attr].N);
+                }
+                else if (attr == "Latitude")
+                {
+                    tempObj.Longitude = Convert.ToDecimal(item[attr].N);
+                }
+                else
+                {
+                    PropertyInfo prop = type.GetProperty(attr);
+                    prop.SetValue(tempObj, item[attr].S, null);
+                }
+            }
+
+            return tempObj;
+        }
+
+        public static List<Property> ConvertToEntity(List<Dictionary<string, AttributeValue>> item)
+        {
+            List<Property> listings = new List<Property>();
+
+            foreach (Dictionary<string, AttributeValue> currentItem in item)
+            {
+                listings.Add(ConvertToEntity(currentItem));
+            }
+            return listings;
+        }
 
         public object Clone()
         {

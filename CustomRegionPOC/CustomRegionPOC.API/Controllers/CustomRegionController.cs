@@ -63,10 +63,17 @@ namespace CustomRegionPOC.API.Controllers
         }
 
         [HttpGet]
-        [Route("GetAllAreas")]
+        [Route("GetArea")]
         public async Task<List<AreaListing>> GetAllAreas()
         {
-            return await this.service.GetAllAreas();
+            return await this.service.GetArea();
+        }
+
+        [HttpGet]
+        [Route("GetArea/{id}")]
+        public async Task<dynamic> GetArea(string id)
+        {
+            return await this.service.GetArea(id);
         }
     }
 }

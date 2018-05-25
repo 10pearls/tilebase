@@ -103,7 +103,7 @@ namespace CustomRegionPOC.Console
             List<Area> areas = new List<Area>();
             foreach (Area obj in areaMigration)
             {
-                obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lng = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
+                obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lng = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lat = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
 
                 List<Tuple<PointF, PointF>> tuples = regionServiceInstance.GenerateTileTuples(obj.Points);
                 List<LocationPoint> rasterizePoints = regionServiceInstance.Rasterize(tuples).Select(x => new LocationPoint() { Lat = x.X, Lng = x.Y }).ToList();
@@ -125,7 +125,7 @@ namespace CustomRegionPOC.Console
             List<AreaListing> areaListings = new List<AreaListing>();
             foreach (AreaListing obj in areaListingMigration)
             {
-                obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lng = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
+                obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lng = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lat = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
                 obj.OriginalPolygon = "";
                 areaListings.Add(obj);
             }
@@ -207,7 +207,7 @@ namespace CustomRegionPOC.Console
             }
 
             int count = 1;
-            foreach (var obj in areas.Where(x => x.AreaID == "20943").ToList().ChunkBy(300))
+            foreach (var obj in areas.ToList().ChunkBy(100))
             {
                 try
                 {
@@ -305,7 +305,7 @@ namespace CustomRegionPOC.Console
                                         AverageRent = !propertyAddress.Table.Columns.Contains("averagerent") ? string.Empty : propertyAddress["averagerent"].ToString(),
                                         AverageSqFt = !propertyAddress.Table.Columns.Contains("averagesqft") ? string.Empty : propertyAddress["averagesqft"].ToString(),
                                         AverageValuePerSqFt = !propertyAddress.Table.Columns.Contains("averagevaluepersqft") ? string.Empty : propertyAddress["averagevaluepersqft"].ToString(),
-                                        DefaultParentAreaID = !propertyAddress.Table.Columns.Contains("defaultparentareaid") ? string.Empty : propertyAddress["defaultparentareaid"].ToString(),
+                                        AreaID = !propertyAddress.Table.Columns.Contains("defaultparentareaid") ? string.Empty : propertyAddress["defaultparentareaid"].ToString(),
                                         Url = !propertyAddress.Table.Columns.Contains("url") ? string.Empty : propertyAddress["url"].ToString(),
                                         FullStreetAddress = !propertyAddress.Table.Columns.Contains("fullstreetaddress") ? string.Empty : propertyAddress["fullstreetaddress"].ToString()
                                     };
@@ -313,64 +313,80 @@ namespace CustomRegionPOC.Console
             List<PointF> points = propertyMigration.Select(x => new PointF((float)Convert.ToDecimal(x.Latitude), (float)Convert.ToDecimal(x.Longitude))).ToList();
             List<Tile> tiles = regionServiceInstance.GetCoordinateTile(points);
 
-            Projection projection = new Projection() { ProjectionType = "ALL" };
+            Projection projection = new Projection() { ProjectionType = "INCLUDE" };
+
+            List<string> nonKeyAttributes = new List<string>();
+
+            nonKeyAttributes.Add("AreaID");
+            nonKeyAttributes.Add("PropertyAddressID");
+            nonKeyAttributes.Add("BathsFull");
+            nonKeyAttributes.Add("BathsHalf");
+            nonKeyAttributes.Add("Beds");
+            nonKeyAttributes.Add("AverageValue");
+            nonKeyAttributes.Add("Latitude");
+            nonKeyAttributes.Add("Longitude");
+
+            projection.NonKeyAttributes = nonKeyAttributes;
 
             List<LocalSecondaryIndex> localSecondaryIndexes = new List<LocalSecondaryIndex>();
 
             List<KeySchemaElement> propertyAddressIDKeySchema = new List<KeySchemaElement>() {
                 new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "PropertyAddressID", KeyType = KeyType.RANGE }
+                new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.RANGE }
             };
             localSecondaryIndexes.Add(new LocalSecondaryIndex()
             {
-                IndexName = "PropertyAddressIDIndex",
+                IndexName = "AreaIDIndex",
                 Projection = projection,
                 KeySchema = propertyAddressIDKeySchema
             });
 
-            List<KeySchemaElement> bathsFullKeySchema = new List<KeySchemaElement>() {
-                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "BathsFull", KeyType = KeyType.RANGE }
-            };
-            localSecondaryIndexes.Add(new LocalSecondaryIndex()
-            {
-                IndexName = "BathsFullIndex",
-                Projection = projection,
-                KeySchema = bathsFullKeySchema
-            });
+            //List<KeySchemaElement> bathsFullKeySchema = new List<KeySchemaElement>() {
+            //    new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+            //    new KeySchemaElement { AttributeName = "BathsFull", KeyType = KeyType.RANGE }
+            //};
+            //localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            //{
+            //    IndexName = "BathsFullIndex",
+            //    Projection = projection,
+            //    KeySchema = bathsFullKeySchema
+            //});
 
-            List<KeySchemaElement> bathsHalfKeySchema = new List<KeySchemaElement>() {
-                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "BathsHalf", KeyType = KeyType.RANGE }
-            };
-            localSecondaryIndexes.Add(new LocalSecondaryIndex()
-            {
-                IndexName = "BathsHalfIndex",
-                Projection = projection,
-                KeySchema = bathsHalfKeySchema
-            });
+            //List<KeySchemaElement> bathsHalfKeySchema = new List<KeySchemaElement>() {
+            //    new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+            //    new KeySchemaElement { AttributeName = "BathsHalf", KeyType = KeyType.RANGE }
+            //};
+            //localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            //{
+            //    IndexName = "BathsHalfIndex",
+            //    Projection = projection,
+            //    KeySchema = bathsHalfKeySchema
+            //});
 
-            List<KeySchemaElement> bedsKeySchema = new List<KeySchemaElement>() {
-                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "Beds", KeyType = KeyType.RANGE }
-            };
-            localSecondaryIndexes.Add(new LocalSecondaryIndex()
-            {
-                IndexName = "BedsIndex",
-                Projection = projection,
-                KeySchema = bedsKeySchema
-            });
+            //List<KeySchemaElement> bedsKeySchema = new List<KeySchemaElement>() {
+            //    new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+            //    new KeySchemaElement { AttributeName = "Beds", KeyType = KeyType.RANGE }
+            //};
+            //localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            //{
+            //    IndexName = "BedsIndex",
+            //    Projection = projection,
+            //    KeySchema = bedsKeySchema
+            //});
 
-            List<KeySchemaElement> areaIDKeySchema = new List<KeySchemaElement>() {
-                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "DefaultParentAreaID", KeyType = KeyType.RANGE }
-            };
-            localSecondaryIndexes.Add(new LocalSecondaryIndex()
-            {
-                IndexName = "AreaIdIndex",
-                Projection = projection,
-                KeySchema = areaIDKeySchema
-            });
+            //List<KeySchemaElement> areaIDKeySchema = new List<KeySchemaElement>() {
+            //    new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+            //    new KeySchemaElement { AttributeName = "DefaultParentAreaID", KeyType = KeyType.RANGE }
+            //};
+            //localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            //{
+            //    IndexName = "AreaIdIndex",
+            //    Projection = projection,
+            //    KeySchema = areaIDKeySchema
+            //});
+
+
+
 
             //List<string> nonKeyAttributes = new List<string>();
             //nonKeyAttributes.Add("PropertyAddressID");
@@ -385,11 +401,14 @@ namespace CustomRegionPOC.Console
                 {
                     new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "PropertyID", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "PropertyAddressID", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "BathsFull", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "BathsHalf", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "Beds", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "DefaultParentAreaID", AttributeType = ScalarAttributeType.S }
+                    new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "PropertyAddressID", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "BathsFull", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "BathsHalf", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "Beds", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "AverageValue", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "Latitude", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "Longitude", AttributeType = ScalarAttributeType.S },
                 };
 
             regionServiceInstance.CreateTempTable("tile_property_v2", localSecondaryIndexes, attributeDefinition, "Tile", "PropertyID").Wait();

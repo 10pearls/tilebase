@@ -16,6 +16,8 @@ namespace CustomRegionPOC.Common.Service
 
         Task<List<Listing>> GetListing(Area listing);
 
-        Task<List<AreaListing>> GetAllAreas();
+        Task<List<AreaListing>> GetArea();
+
+        Task<dynamic> GetArea(string id);
     }
 }

@@ -24,6 +24,10 @@ namespace CustomRegionPOC.Service
 {
     public class RegionService : IRegionService
     {
+        private string areaTableName = "tile_area_v2";
+        private string areaListingTableName = "tile_area_listing_v2";
+        private string propertyTableName = "tile_property_v2";
+
         private AmazonDynamoDBClient dynamoDBClient;
         private string tilebaseURL;
         public DynamoDBContext context;
@@ -100,27 +104,69 @@ namespace CustomRegionPOC.Service
             return listings;
         }
 
-        public async Task<List<AreaListing>> GetAllAreas()
+        public async Task<List<AreaListing>> GetArea()
         {
             var request = new ScanRequest
             {
-                TableName = "tile_area_listing_v2",
+                TableName = areaListingTableName,
                 IndexName = "AreaIDIndex"
             };
 
-            var response = dynamoDBClient.ScanAsync(request).Result;
+            var response = await dynamoDBClient.ScanAsync(request);
 
-            List<AreaListing> listings = new List<AreaListing>();
-            foreach (Dictionary<string, AttributeValue> item in response.Items)
-            {
-                listings.Add(new AreaListing()
-                {
-                    AreaID = item["AreaID"].S,
-                    AreaName = item["AreaName"].S
-                });
-            }
+            List<AreaListing> listings = AreaListing.ConvertToEntity(response.Items);
 
             return listings;
+        }
+
+        public async Task<dynamic> GetArea(string Id)
+        {
+            List<AreaListing> listingArea = new List<AreaListing>();
+            List<Property> areaProperties = new List<Property>();
+
+
+            String keyConditionExpression = "AreaID = :v_areaId";
+            Dictionary<string, AttributeValue> expressionAttributeValues = new Dictionary<string, AttributeValue> {
+                {":v_areaId", new AttributeValue {
+                     S = Id
+                 }}
+            };
+
+
+            QueryRequest queryRequest = new QueryRequest()
+            {
+                TableName = areaListingTableName,
+                ConsistentRead = true,
+                ScanIndexForward = true,
+                ReturnConsumedCapacity = "TOTAL"
+            };
+
+            queryRequest.KeyConditionExpression = keyConditionExpression;
+            queryRequest.ExpressionAttributeValues = expressionAttributeValues;
+
+            var result = dynamoDBClient.QueryAsync(queryRequest).Result;
+            listingArea = AreaListing.ConvertToEntity(result.Items);
+
+
+
+
+            var request = new ScanRequest
+            {
+                TableName = propertyTableName,
+                IndexName = "AreaIDIndex",
+                FilterExpression = keyConditionExpression,
+                ExpressionAttributeValues = expressionAttributeValues
+            };
+
+            var response = await dynamoDBClient.ScanAsync(request);
+
+             areaProperties = Property.ConvertToEntity(response.Items);
+
+            return new
+            {
+                Area = listingArea,
+                Properties = areaProperties
+            };
         }
 
         #region Public Function
