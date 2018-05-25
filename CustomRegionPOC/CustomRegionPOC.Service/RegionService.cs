@@ -100,6 +100,15 @@ namespace CustomRegionPOC.Service
             return listings;
         }
 
+
+        public async Task<List<AreaListing>> GetAllAreas()
+        {
+
+            List<AreaListing> areaListings = new List<AreaListing>();
+            List<ScanCondition> conditions = new List<ScanCondition>();
+            return await context.ScanAsync<AreaListing>(conditions).GetRemainingAsync();
+        }
+
         #region Public Function
         public async Task CreateTempTable(string tableName, List<LocalSecondaryIndex> localSecondaryIndexes, List<AttributeDefinition> attributeDefinition, string hashKey = "Tile", string SortKey = "Guid")
         {
