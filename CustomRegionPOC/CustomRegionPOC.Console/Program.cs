@@ -62,36 +62,35 @@ namespace CustomRegionPOC.Console
 
         public static void migrateAreas(DataRow[] dtAreas)
         {
-            // foreach(var area in dtAreas) {
-            //     System.Console.WriteLine(area);
-            //     System.Console.WriteLine(area[0]);
-            //     System.Console.WriteLine(area["AreaID"]);
-            // }
-            var areaMigration = dtAreas.Select(area => new Area()
+            List<Area> areaMigration = new List<Area>();
+            foreach (DataRow area in dtAreas)
             {
-                AreaID = area[0].ToString(),
-                AreaName = area[1].ToString(),
-                URLName = area[2].ToString(),
-                URLPath = area[3].ToString(),
-                StateFIPS = area[4].ToString(),
-                FIPS = area[5].ToString(),
-                State = area[6].ToString(),
-                USPSCity = area[7].ToString(),
-                AreaTypeID = area[8].ToString(),
-                SubTypeID = area[9].ToString(),
-                OriginalPolygon = area[10].ToString(),
-                OriginalPolygonArea = area[11].ToString(),
-                Latitude = Convert.ToDecimal(area[12].ToString()),
-                Longitude = Convert.ToDecimal(area[13].ToString()),
-                North = area[14].ToString(),
-                South = area[15].ToString(),
-                East = area[16].ToString(),
-                West = area[17].ToString(),
-                TopLeveeaID = area[18].ToString(),
-                SourceID = area[19].ToString(),
-                SourceKey = area[20].ToString(),
-                AreaStatus = !area.Table.Columns.Contains("Status") ? string.Empty : area[21].ToString(),
-            });
+                Area obj = new Area();
+
+                obj.AreaID = area[0].ToString();
+                obj.AreaName = area[1].ToString();
+                obj.URLName = area[2].ToString();
+                obj.URLPath = area[3].ToString();
+                obj.StateFIPS = area[4].ToString();
+                obj.FIPS = area[5].ToString();
+                obj.State = area[6].ToString();
+                obj.USPSCity = area[7].ToString();
+                obj.AreaTypeID = area[8].ToString();
+                obj.SubTypeID = area[9].ToString();
+                obj.OriginalPolygon = area[10].ToString();
+                obj.Latitude = Convert.ToDecimal(area[11].ToString());
+                obj.Longitude = Convert.ToDecimal(area[12].ToString());
+                obj.North = area[13].ToString();
+                obj.South = area[14].ToString();
+                obj.East = area[15].ToString();
+                obj.West = area[16].ToString();
+                obj.TopLeveeaID = area[17].ToString();
+                obj.SourceID = area[18].ToString();
+                obj.SourceKey = area[19].ToString();
+                obj.AreaStatus = !area.Table.Columns.Contains("Status") ? string.Empty : area[21].ToString();
+
+                areaMigration.Add(obj);
+            }
 
             var areaListingMigration = dtAreas.Select(area => new AreaListing()
             {
@@ -117,6 +116,7 @@ namespace CustomRegionPOC.Console
                     tempObj.Guid = Guid.NewGuid().ToString();
                     tempObj.Name = obj.AreaName;
                     tempObj.OriginalPolygon = "";
+                    tempObj.Points = null;
 
                     areas.Add(tempObj);
                 }
@@ -130,27 +130,73 @@ namespace CustomRegionPOC.Console
                 areaListings.Add(obj);
             }
 
-            regionServiceInstance.CreateTempTable("tile_area_v2", null, null).Wait();
 
-            List<AttributeDefinition> attributeDefinition = new List<AttributeDefinition>()
-                {
-                    new AttributeDefinition { AttributeName = "GUID", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "AreaName", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "Points", AttributeType = ScalarAttributeType.S }
-                };
+            List<AttributeDefinition> areaAttributeDefinition = new List<AttributeDefinition>()
+            {
+                new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S }
+            };
 
-            regionServiceInstance.CreateTempTable("tile_area_listing_v2", null, attributeDefinition, "GUID", "AreaID").Wait();
+            Projection projection = new Projection() { ProjectionType = "INCLUDE" };
 
-            foreach (var obj in areas.ToList().ChunkBy(100))
+            var nonKeyAttributes = new List<string>()
+            {
+                "AreaName"
+            };
+            projection.NonKeyAttributes = nonKeyAttributes;
+
+            List<LocalSecondaryIndex> localSecondaryIndexes = new List<LocalSecondaryIndex>();
+
+            List<KeySchemaElement> areaIDKeySchema = new List<KeySchemaElement>() {
+                new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.RANGE }
+            };
+            localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            {
+                IndexName = "AreaIDIndex",
+                Projection = projection,
+                KeySchema = areaIDKeySchema
+            });
+
+            regionServiceInstance.CreateTempTable("tile_area_v2", localSecondaryIndexes, areaAttributeDefinition, "Tile", "AreaID").Wait();
+
+
+
+
+            Projection areaListingProjection = new Projection() { ProjectionType = "KEYS_ONLY" };
+
+            List<LocalSecondaryIndex> areaListingLocalSecondaryIndexes = new List<LocalSecondaryIndex>();
+
+            List<KeySchemaElement> areaListingKeySchema = new List<KeySchemaElement>() {
+                new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "AreaName", KeyType = KeyType.RANGE }
+            };
+            areaListingLocalSecondaryIndexes.Add(new LocalSecondaryIndex()
+            {
+                IndexName = "AreaIDIndex",
+                Projection = areaListingProjection,
+                KeySchema = areaListingKeySchema
+            });
+
+            List<AttributeDefinition> areaListingAttributeDefinition = new List<AttributeDefinition>()
+            {
+                new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "AreaName", AttributeType = ScalarAttributeType.S }
+            };
+
+            regionServiceInstance.CreateTempTable("tile_area_listing_v2", areaListingLocalSecondaryIndexes, areaListingAttributeDefinition, "AreaID", "AreaName").Wait();
+
+            foreach (var obj in areaListings.ToList().ChunkBy(100))
             {
                 try
                 {
-                    System.Console.WriteLine("adding Area chunk");
-                    var batch = regionServiceInstance.context.CreateBatchWrite<Area>();
+
+                    System.Console.WriteLine("adding Area Listing chunk");
+                    var batch = regionServiceInstance.context.CreateBatchWrite<AreaListing>();
                     batch.AddPutItems(obj);
                     batch.ExecuteAsync().Wait();
-                    System.Console.WriteLine("Area Chunk added");
+
+                    System.Console.WriteLine("Area Listing Chunk added");
                     //regionServiceInstance.context.SaveAsync(obj).Wait();
                 }
                 catch (Exception e)
@@ -160,18 +206,26 @@ namespace CustomRegionPOC.Console
                 }
             }
 
-            foreach (var obj in areaListings.ToList().ChunkBy(100))
+            int count = 1;
+            foreach (var obj in areas.Where(x => x.AreaID == "20943").ToList().ChunkBy(300))
             {
                 try
                 {
-                    
-                    System.Console.WriteLine("adding Area Listing chunk");
-                    var batch = regionServiceInstance.context.CreateBatchWrite<AreaListing>();
+                    System.Console.WriteLine("adding Area chunk. index: " + count);
+
+                    //Parallel.ForEach(obj, obj2 =>
+                    //{
+                    //    regionServiceInstance.context.SaveAsync<Area>(obj2).Wait();
+                    //});
+
+
+                    var batch = regionServiceInstance.context.CreateBatchWrite<Area>();
                     batch.AddPutItems(obj);
                     batch.ExecuteAsync().Wait();
-                    
-                    System.Console.WriteLine("Area Listing Chunk added");
-                    //regionServiceInstance.context.SaveAsync(obj).Wait();
+
+                    System.Console.WriteLine("Area Chunk added. index: " + count);
+
+                    count += 1;
                 }
                 catch (Exception e)
                 {
@@ -258,8 +312,6 @@ namespace CustomRegionPOC.Console
 
             List<PointF> points = propertyMigration.Select(x => new PointF((float)Convert.ToDecimal(x.Latitude), (float)Convert.ToDecimal(x.Longitude))).ToList();
             List<Tile> tiles = regionServiceInstance.GetCoordinateTile(points);
-
-
 
             Projection projection = new Projection() { ProjectionType = "ALL" };
 
