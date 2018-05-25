@@ -100,13 +100,27 @@ namespace CustomRegionPOC.Service
             return listings;
         }
 
-
         public async Task<List<AreaListing>> GetAllAreas()
         {
+            var request = new ScanRequest
+            {
+                TableName = "tile_area_listing_v2",
+                IndexName = "AreaIDIndex"
+            };
 
-            List<AreaListing> areaListings = new List<AreaListing>();
-            List<ScanCondition> conditions = new List<ScanCondition>();
-            return await context.ScanAsync<AreaListing>(conditions).GetRemainingAsync();
+            var response = dynamoDBClient.ScanAsync(request).Result;
+
+            List<AreaListing> listings = new List<AreaListing>();
+            foreach (Dictionary<string, AttributeValue> item in response.Items)
+            {
+                listings.Add(new AreaListing()
+                {
+                    AreaID = item["AreaID"].S,
+                    AreaName = item["AreaName"].S
+                });
+            }
+
+            return listings;
         }
 
         #region Public Function
