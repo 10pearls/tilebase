@@ -15,5 +15,7 @@ namespace CustomRegionPOC.Common.Service
         Task SaveListing(Listing listing);
 
         Task<List<Listing>> GetListing(Area listing);
+
+        Task<List<AreaListing>> GetAllAreas();
     }
 }
