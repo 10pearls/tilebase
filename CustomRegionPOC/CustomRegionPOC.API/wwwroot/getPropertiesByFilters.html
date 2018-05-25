@@ -88,52 +88,52 @@
         //     url += pointLatLng.lng.toString();
 
 
-        //     getAjax(url, function (res) {
-        //         console.log(res);
+            // getAjax(url, function (res) {
+            //     console.log(res);
 
-        //         res = JSON.parse(res);
+            //     res = JSON.parse(res);
 
-        //         var marker = new google.maps.Marker({
-        //             position: pointLatLng,
-        //             map: map,
-        //             title: 'Region',
-        //             content: pointLatLng
-        //         });
+            //     var marker = new google.maps.Marker({
+            //         position: pointLatLng,
+            //         map: map,
+            //         title: 'Region',
+            //         content: pointLatLng
+            //     });
 
-        //         google.maps.event.addListener(marker, 'click', function() {
+            //     google.maps.event.addListener(marker, 'click', function() {
                     
-        //             var markerTitle = res.map(r => r.name).join(', ');
-        //             var infoWindow = new google.maps.InfoWindow({
-        //                 content: markerTitle
-        //             });
-        //             infoWindow.open(map, marker);
-        //         });
+            //         var markerTitle = res.map(r => r.name).join(', ');
+            //         var infoWindow = new google.maps.InfoWindow({
+            //             content: markerTitle
+            //         });
+            //         infoWindow.open(map, marker);
+            //     });
                 
-        //         for (var i = 0; i < res.length; i++) {
-        //             var points = res[i].points;
+            //     for (var i = 0; i < res.length; i++) {
+            //         var points = res[i].points;
 
-        //             var cordinates = [];
-        //             for (var j = 0; j < points.length; j++) {
-        //                 cordinates.push(new google.maps.LatLng(points[j].lat, points[j].lng));
-        //             }
-        //             // Construct the polygon.
-        //             var poly = new google.maps.Polygon({
-        //                 paths: cordinates,
-        //                 strokeColor: '#957aff',
-        //                 strokeOpacity: 0.8,
-        //                 strokeWeight: 2,
-        //                 fillColor: '#957aff',
-        //                 fillOpacity: 0.35
-        //             });
-        //             poly.setMap(map);
-        //             coordinates.push(poly);
-        //         }
-        //     });
+            //         var cordinates = [];
+            //         for (var j = 0; j < points.length; j++) {
+            //             cordinates.push(new google.maps.LatLng(points[j].lat, points[j].lng));
+            //         }
+            //         // Construct the polygon.
+            //         var poly = new google.maps.Polygon({
+            //             paths: cordinates,
+            //             strokeColor: '#957aff',
+            //             strokeOpacity: 0.8,
+            //             strokeWeight: 2,
+            //             fillColor: '#957aff',
+            //             fillOpacity: 0.35
+            //         });
+            //         poly.setMap(map);
+            //         coordinates.push(poly);
+            //     }
+            // });
         // }
 
         // google.maps.event.addListener(map, 'click', mapOnClickEvent);
 
-        $.getJSON("api/CustomRegion/GetAllAreas", function(json){
+        $.getJSON("api/CustomRegion/getArea", function(json){
             areaData = json;
         $('#areaName').empty();
         $('#areaName').append($('<option>').text("Select"));
@@ -161,8 +161,8 @@
     }
 
     function panMap(lat, lng) {
-        lat = 24.946218;
-        lng = 67.005615;
+        lat = lat || 24.946218;
+        lng = lng || 67.005615;
         var myLatlng = new google.maps.LatLng(lat, lng);
         map.panTo(myLatlng);
     }
@@ -184,6 +184,42 @@
             url += '/?';
             url += queryParams;
             console.log(url);
+
+
+            var timer = new Date();
+            getAjax(url, function (res) {
+                var timer2 = new Date();
+                console.log("time 1: ", timer.getHours(), timer.getMinutes(), timer.getSeconds());
+                console.log("time 2: ", timer2.getHours(), timer2.getMinutes(), timer2.getSeconds());
+                
+                res = JSON.parse(res);
+
+                var poly = new google.maps.Polygon({
+                        paths: res.area[0].points,
+                        strokeColor: '#957aff',
+                        strokeOpacity: 0.8,
+                        strokeWeight: 2,
+                        fillColor: '#957aff',
+                        fillOpacity: 0.35
+                    });
+                    poly.setMap(map);
+                    panMap(res.area[0].points[0].lat, res.area[0].points[0].lng);
+                    debugger;
+
+
+                    for (var i = 0; i< res.properties.length;i++) {
+                    var pointLatLng = { lat: res.properties[i].latitude, lng: res.properties[i].longitude};
+                    var marker = new google.maps.Marker({
+                        position: pointLatLng,
+                        map: map,
+                        title: 'Area',
+                        content: pointLatLng
+                    });
+
+                    }
+
+            });
+
 
 
     }

@@ -175,7 +175,7 @@ namespace CustomRegionPOC.Common.Model
                 }
                 else if (attr == "Latitude")
                 {
-                    tempObj.Longitude = Convert.ToDecimal(item[attr].N);
+                    tempObj.Latitude = Convert.ToDecimal(item[attr].N);
                 }
                 else
                 {
