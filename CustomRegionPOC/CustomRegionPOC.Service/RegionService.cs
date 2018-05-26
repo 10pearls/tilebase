@@ -189,7 +189,7 @@ namespace CustomRegionPOC.Service
             {
                 Area = listingArea,
                 PropertyCount = areaProperties.SelectMany(x => x).ToList().Count(),
-                Properties = areaProperties.SelectMany(x => x).ToList(),
+                //Properties = areaProperties.SelectMany(x => x).ToList(),
                 TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
             };
         }
