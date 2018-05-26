@@ -121,52 +121,75 @@ namespace CustomRegionPOC.Service
 
         public async Task<dynamic> GetArea(string Id)
         {
+            List<Task> tasks = new List<Task>();
+
             List<AreaListing> listingArea = new List<AreaListing>();
-            List<Property> areaProperties = new List<Property>();
+            List<List<Property>> areaProperties = new List<List<Property>>();
 
 
             String keyConditionExpression = "AreaID = :v_areaId";
             Dictionary<string, AttributeValue> expressionAttributeValues = new Dictionary<string, AttributeValue> {
                 {":v_areaId", new AttributeValue {
-                     S = Id
-                 }}
+                    S = Id
+                } }
             };
 
-
-            QueryRequest queryRequest = new QueryRequest()
+            tasks.Add(new TaskFactory().StartNew(() =>
             {
-                TableName = areaListingTableName,
-                ConsistentRead = true,
-                ScanIndexForward = true,
-                ReturnConsumedCapacity = "TOTAL"
-            };
+                QueryRequest queryRequest = new QueryRequest()
+                {
+                    TableName = areaListingTableName,
+                    ConsistentRead = true,
+                    ScanIndexForward = true,
+                    ReturnConsumedCapacity = "TOTAL",
+                    KeyConditionExpression = keyConditionExpression,
+                    ExpressionAttributeValues = expressionAttributeValues
+                };
 
-            queryRequest.KeyConditionExpression = keyConditionExpression;
-            queryRequest.ExpressionAttributeValues = expressionAttributeValues;
+                var result = dynamoDBClient.QueryAsync(queryRequest).Result;
+                listingArea = AreaListing.ConvertToEntity(result.Items);
+            }));
 
-            var result = dynamoDBClient.QueryAsync(queryRequest).Result;
-            listingArea = AreaListing.ConvertToEntity(result.Items);
+
 
             object lockObj = new object();
 
             DateTime startDate = DateTime.Now;
-            var request = new ScanRequest
+            tasks.Add(new TaskFactory().StartNew(() =>
             {
-                TableName = propertyTableName,
-                IndexName = "AreaIDIndex",
-                FilterExpression = keyConditionExpression,
-                ExpressionAttributeValues = expressionAttributeValues
-            };
-            var response = dynamoDBClient.ScanAsync(request).Result;
-            areaProperties = Property.ConvertToEntity(response.Items);
+                Parallel.For(0, 11, segment =>
+                {
+                    string innerId = Id + "-" + segment;
+
+                    Dictionary<string, AttributeValue> areaExpressionAttributeValues = new Dictionary<string, AttributeValue> {
+                        {":v_areaId", new AttributeValue {
+                            S = innerId
+                        } }
+                    };
+
+                    var request = new QueryRequest
+                    {
+                        TableName = propertyTableName,
+                        IndexName = "AreaIDIndex",
+                        KeyConditionExpression = keyConditionExpression,
+                        ExpressionAttributeValues = areaExpressionAttributeValues
+                    };
+                    var response = dynamoDBClient.QueryAsync(request).Result;
+                    
+                    areaProperties.Add(Property.ConvertToEntity(response.Items));
+                });
+            }));
+
+            Task.WaitAll(tasks.ToArray());
+
 
             DateTime endDate = DateTime.Now;
 
             return new
             {
                 Area = listingArea,
-                PropertyCount = areaProperties.Count(),
-                Properties = areaProperties,
+                PropertyCount = areaProperties.SelectMany(x => x).ToList().Count(),
+                Properties = areaProperties.SelectMany(x => x).ToList(),
                 TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
             };
         }
@@ -283,8 +306,8 @@ namespace CustomRegionPOC.Service
                     dataStream = response.GetResponseStream();
                     StreamReader reader = new StreamReader(dataStream);
                     string responseFromServer = reader.ReadToEnd();
-                    //Console.WriteLine(responseFromServer);
-                    reader.Close();
+            //Console.WriteLine(responseFromServer);
+            reader.Close();
                     dataStream.Close();
                     response.Close();
 

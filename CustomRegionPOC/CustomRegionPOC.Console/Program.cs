@@ -330,16 +330,22 @@ namespace CustomRegionPOC.Console
             projection.NonKeyAttributes = nonKeyAttributes;
 
             List<LocalSecondaryIndex> localSecondaryIndexes = new List<LocalSecondaryIndex>();
+            List<GlobalSecondaryIndex> globalSecondaryIndexes = new List<GlobalSecondaryIndex>();
 
             List<KeySchemaElement> propertyAddressIDKeySchema = new List<KeySchemaElement>() {
-                new KeySchemaElement { AttributeName = "Guid", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.HASH },
                 new KeySchemaElement { AttributeName = "PropertyID", KeyType = KeyType.RANGE }
             };
-            localSecondaryIndexes.Add(new LocalSecondaryIndex()
+            globalSecondaryIndexes.Add(new GlobalSecondaryIndex()
             {
                 IndexName = "AreaIDIndex",
                 Projection = projection,
-                KeySchema = propertyAddressIDKeySchema
+                KeySchema = propertyAddressIDKeySchema,
+                ProvisionedThroughput = new ProvisionedThroughput
+                {
+                    ReadCapacityUnits = (long)100,
+                    WriteCapacityUnits = (long)100
+                },
             });
 
             //List<KeySchemaElement> bathsFullKeySchema = new List<KeySchemaElement>() {
@@ -400,10 +406,10 @@ namespace CustomRegionPOC.Console
 
             List<AttributeDefinition> attributeDefinition = new List<AttributeDefinition>()
                 {
-                    //new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "PropertyID", AttributeType = ScalarAttributeType.S },
-                    //new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "Guid", AttributeType = ScalarAttributeType.N },
+                    new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
+                    //new AttributeDefinition { AttributeName = "Guid", AttributeType = ScalarAttributeType.N },
                     //new AttributeDefinition { AttributeName = "PropertyAddressID", AttributeType = ScalarAttributeType.S },
                     //new AttributeDefinition { AttributeName = "BathsFull", AttributeType = ScalarAttributeType.S },
                     //new AttributeDefinition { AttributeName = "BathsHalf", AttributeType = ScalarAttributeType.S },
@@ -413,7 +419,7 @@ namespace CustomRegionPOC.Console
                     //new AttributeDefinition { AttributeName = "Longitude", AttributeType = ScalarAttributeType.S },
                 };
 
-            regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, null, localSecondaryIndexes, "Guid", "PropertyID").Wait();
+            regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, globalSecondaryIndexes, localSecondaryIndexes, "Tile", "PropertyID").Wait();
             //regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, null, localSecondaryIndexes, "Tile", "PropertyID").Wait();
 
             object lockObj = new object();
@@ -426,9 +432,10 @@ namespace CustomRegionPOC.Console
 
                 Property tempObj = (Property)obj.Clone();
 
+                tempObj.AreaID += "-" + rnd.Next(1, 10);
                 tempObj.Tile = regionServiceInstance.GetTileStr((int)tempTile.Row, (int)tempTile.Column);
                 tempObj.Type = RecordType.Listing;
-                tempObj.Guid = rnd.Next(1,16);
+                tempObj.Guid = rnd.Next(1, 16);
                 tempObj.Name = obj.PropertyAddressName;
                 properties.Add(tempObj);
 
