@@ -73,6 +73,12 @@ namespace CustomRegionPOC.Service
                 {
                     PropertyID = Guid.NewGuid().ToString(),
                     PropertyAddressName = listing.Name,
+                    Beds = listing.Beds,
+                    BathsFull = listing.BathsFull,
+                    BathsHalf = listing.BathsHalf,
+                    PropertyAddressID = listing.PropertyAddressId,
+                    AverageValue = listing.AverageValue,
+                    AverageRent = listing.AverageRent,
                     Latitude = Convert.ToDecimal(coordinate.Lat),
                     Longitude = Convert.ToDecimal(coordinate.Lng),
                     Tile = this.GetTileStr((int)coordinate.Row, (int)coordinate.Column)

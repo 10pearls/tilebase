@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <title>Tile Base</title>
@@ -20,84 +20,202 @@
     </style>
 </head>
 <body>
-<div id="map"></div>
-<script>
+    <div id="map"></div>
+    <table>
+        <tr>
+            <td>
+                Address Name:
+            </td>
+            <td>
+                <input style="margin-left: 10px;" type="text" name="addressName" id="addressName">
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Beds:
+            </td>
+            <td>
+                <select class="form-control select2" id="beds">
+                    <option value="" selected>Select</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Baths Full:
+            </td>
+            <td>
+                <select class="form-control select2" id="bathsFull">
+                    <option value="" selected>Select</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+            </td>
+        </tr>
 
-    function getAjax(url, success) {
-        var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
-        xhr.open('GET', url);
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
-        };
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.send();
-        return xhr;
-    }
+        <tr>
+            <td>
+                Baths Half:
+            </td>
+            <td>
+                <select class="form-control select2" id="bathsHalf">
+                    <option value="" selected>Select</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Property Address:
+            </td>
+            <td>
+                <input style="margin-left: 10px;" type="text" name="propertyAddressId" id="propertyAddressId">
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Average Value:
+            </td>
+            <td>
+                <input style="margin-left: 10px;" type="number" name="averageValue" id="averageValue">
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Average Rent:
+            </td>
+            <td>
+                <input style="margin-left: 10px;" type="number" name="averageRent" id="averageRent">
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <button onclick="saveListing(
+                                document.getElementById('addressName').value,
+                                document.getElementById('beds').value,
+                                document.getElementById('bathsFull').value,
+                                document.getElementById('bathsHalf').value,
+                                document.getElementById('propertyAddressId').value,
+                                document.getElementById('averageValue').value,
+                                document.getElementById('averageRent').value
+                                )">
+                    Add Listing
+                </button>
+            </td>
+        </tr>
+    </table>
 
-    function postAjax(url, data, success) {
+    <script>
 
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', url);
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState > 3 && xhr.status == 200) {
-                success(xhr.responseText);
-            }
-        };
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-        xhr.send(JSON.stringify(data));
-        return xhr;
-    }
+        function getAjax(url, success) {
+            var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+            xhr.open('GET', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
+            };
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send();
+            return xhr;
+        }
 
-    var map;
-    var mapOnClickEvent;
-    var markers;
+        function postAjax(url, data, success) {
 
-    function initMap() {
-        map = new google.maps.Map(document.getElementById('map'), {
-            center: {lat: 39.48074006114467, lng: -101.43078939104066},
-            zoom: 10
-        });
-
-
-
-
-        var opt = {minZoom: 8};
-        map.setOptions(opt);
-
-        var markers = [];
-
-
-        mapOnClickEvent = function (event) {
-            var name = prompt("Please enter a name for the listing to save it", "Default Listing");
-            var latLngs = {lat: event.latLng.lat(), lng: event.latLng.lng()};
-
-            if (name != null) {
-                var obj = {
-                    name: name,
-                    lat: latLngs.lat,
-                    lng: latLngs.lng
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState > 3 && xhr.status == 200) {
+                    success(xhr.responseText);
                 }
-                console.log(obj);
-                postAjax('api/CustomRegion/SaveListing', obj, function (data) {
-                    //console.log(JSON.parse(data));
-                });
+            };
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xhr.send(JSON.stringify(data));
+            return xhr;
+        }
 
-                var marker = new google.maps.Marker({
+        function saveListing(addressName, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent) {
+            if (!currentMarker) {
+                alert("Please Select Marker First");
+            }
+            else {
+                if (addressName) {
+                    debugger;
+                    var obj = {
+                        name: addressName,
+                        beds: beds,
+                        bathsFull: bathsFull,
+                        bathsHalf: bathsHalf,
+                        propertyAddressId: propertyAddressId,
+                        averageValue: averageValue,
+                        averageRent: averageRent,
+                        lat: currentMarker.position.lat(),
+                        lng: currentMarker.position.lng()
+                    }
+                    postAjax('api/CustomRegion/SaveListing', obj, function (data) {
+                        markers.push(currentMarker);
+                        currentMarker = {}
+                    });
+                }
+                else {
+                    alert("Please Provide Address Name")
+                }
+            }
+        }
+
+        var map;
+        var mapOnClickEvent;
+        var markers;
+        var currentMarker;
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 39.48074006114467, lng: -101.43078939104066 },
+                zoom: 10
+            });
+
+
+
+
+            var opt = { minZoom: 8 };
+            map.setOptions(opt);
+
+            markers = [];
+
+
+            mapOnClickEvent = function (event) {
+                var latLngs = { lat: event.latLng.lat(), lng: event.latLng.lng() };
+
+                if (currentMarker) {
+                    currentMarker.setMap(null);
+                }
+
+                currentMarker = new google.maps.Marker({
                     position: latLngs,
                     map: map,
                     title: 'Marker!'
                 });
-                markers.push(marker);
             }
+
+            google.maps.event.addListener(map, 'click', mapOnClickEvent);
         }
 
-        google.maps.event.addListener(map, 'click', mapOnClickEvent);
-
-    }
-
-</script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing&callback=initMap"
-        async defer></script>
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing&callback=initMap"
+            async defer></script>
 </body>
 </html>

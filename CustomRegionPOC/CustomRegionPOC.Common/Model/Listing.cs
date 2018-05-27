@@ -11,5 +11,17 @@ namespace CustomRegionPOC.Common.Model
         public decimal Lng { get; set; }
 
         public string Name { get; set; }
+
+        public string Beds { get; set; }
+
+        public string BathsFull { get; set; }
+
+        public string BathsHalf { get; set; }
+
+        public string PropertyAddressId { get; set; }
+
+        public string AverageValue { get; set; }
+
+        public string AverageRent { get; set; }
     }
 }
