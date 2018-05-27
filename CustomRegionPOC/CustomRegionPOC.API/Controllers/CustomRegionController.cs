@@ -64,7 +64,7 @@ namespace CustomRegionPOC.API.Controllers
 
         [HttpGet]
         [Route("GetArea")]
-        public async Task<List<AreaListing>> GetAllAreas()
+        public async Task<List<AreaMaster>> GetAllAreas()
         {
             return await this.service.GetArea();
         }

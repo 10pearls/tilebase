@@ -25,7 +25,7 @@ namespace CustomRegionPOC.Service
     public class RegionService : IRegionService
     {
         private string areaTableName = "tile_area_v2";
-        private string areaListingTableName = "tile_area_listing_v2";
+        private string areaListingTableName = "tile_area_master_v2";
         private string propertyTableName = "tile_property_v2";
 
         private AmazonDynamoDBClient dynamoDBClient;
@@ -104,7 +104,7 @@ namespace CustomRegionPOC.Service
             return listings;
         }
 
-        public async Task<List<AreaListing>> GetArea()
+        public async Task<List<AreaMaster>> GetArea()
         {
             var request = new ScanRequest
             {
@@ -114,7 +114,7 @@ namespace CustomRegionPOC.Service
 
             var response = await dynamoDBClient.ScanAsync(request);
 
-            List<AreaListing> listings = AreaListing.ConvertToEntity(response.Items);
+            List<AreaMaster> listings = AreaMaster.ConvertToEntity(response.Items);
 
             return listings;
         }
@@ -123,36 +123,27 @@ namespace CustomRegionPOC.Service
         {
             List<Task> tasks = new List<Task>();
 
-            List<AreaListing> listingArea = new List<AreaListing>();
+            List<AreaMaster> listingArea = new List<AreaMaster>();
             List<List<Property>> areaProperties = new List<List<Property>>();
-
-
-            String keyConditionExpression = "AreaID = :v_areaId";
-            Dictionary<string, AttributeValue> expressionAttributeValues = new Dictionary<string, AttributeValue> {
-                {":v_areaId", new AttributeValue {
-                    S = id
-                } }
-            };
 
             tasks.Add(new TaskFactory().StartNew(() =>
             {
+                Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+                Dictionary<string, Condition> areaQueryFilter = new Dictionary<string, Condition>();
+                keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
+                areaQueryFilter.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
+
                 QueryRequest queryRequest = new QueryRequest()
                 {
                     TableName = areaListingTableName,
-                    ConsistentRead = true,
-                    ScanIndexForward = true,
                     ReturnConsumedCapacity = "TOTAL",
-                    KeyConditionExpression = keyConditionExpression,
-                    ExpressionAttributeValues = expressionAttributeValues
+                    KeyConditions = keyConditions,
+                    QueryFilter = areaQueryFilter
                 };
 
                 var result = dynamoDBClient.QueryAsync(queryRequest).Result;
-                listingArea = AreaListing.ConvertToEntity(result.Items);
+                listingArea = AreaMaster.ConvertToEntity(result.Items);
             }));
-
-
-
-            object lockObj = new object();
 
             DateTime startDate = DateTime.Now;
             Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
@@ -202,7 +193,6 @@ namespace CustomRegionPOC.Service
             });
 
             Task.WaitAll(tasks.ToArray());
-
 
             DateTime endDate = DateTime.Now;
 

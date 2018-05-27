@@ -49,9 +49,9 @@ namespace CustomRegionPOC.Console
                 DataRow[] dtProperties = csvHelper.parseAreaCsv(propertiesPath).Rows.Cast<DataRow>().ToArray();
                 DataRow[] dtPropertyAddresses = csvHelper.parseAreaCsv(propertyAddressPath).Rows.Cast<DataRow>().ToArray();
 
-                //migrateAreas(dtAreas);
+                migrateAreas(dtAreas);
 
-                migrateProperty(dtProperties, dtPropertyAddresses);
+                //migrateProperty(dtProperties, dtPropertyAddresses);
             }
             catch (Exception ex)
             {
@@ -92,11 +92,12 @@ namespace CustomRegionPOC.Console
                 areaMigration.Add(obj);
             }
 
-            var areaListingMigration = dtAreas.Select(area => new AreaListing()
+            var areaListingMigration = dtAreas.Select(area => new AreaMaster()
             {
                 GUID = Guid.NewGuid().ToString(),
                 AreaID = area[0].ToString(),
                 AreaName = area[1].ToString(),
+                IsPredefine = true,
                 OriginalPolygon = area[10].ToString()
             });
 
@@ -122,8 +123,8 @@ namespace CustomRegionPOC.Console
                 }
             }
 
-            List<AreaListing> areaListings = new List<AreaListing>();
-            foreach (AreaListing obj in areaListingMigration)
+            List<AreaMaster> areaListings = new List<AreaMaster>();
+            foreach (AreaMaster obj in areaListingMigration)
             {
                 obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lng = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lat = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
                 obj.OriginalPolygon = "";
@@ -163,7 +164,8 @@ namespace CustomRegionPOC.Console
 
 
 
-            Projection areaListingProjection = new Projection() { ProjectionType = "KEYS_ONLY" };
+
+            Projection areaListingProjection = new Projection() { ProjectionType = "INCLUDE", NonKeyAttributes = new List<string> { "IsPredefine" } };
 
             List<LocalSecondaryIndex> areaListingLocalSecondaryIndexes = new List<LocalSecondaryIndex>();
 
@@ -184,19 +186,19 @@ namespace CustomRegionPOC.Console
                 new AttributeDefinition { AttributeName = "AreaName", AttributeType = ScalarAttributeType.S }
             };
 
-            regionServiceInstance.CreateTempTable("tile_area_listing_v2", areaListingAttributeDefinition, null, areaListingLocalSecondaryIndexes, "AreaID", "AreaName").Wait();
+            regionServiceInstance.CreateTempTable("tile_area_master_v2", areaListingAttributeDefinition, null, areaListingLocalSecondaryIndexes, "AreaID", "AreaName").Wait();
 
             foreach (var obj in areaListings.ToList().ChunkBy(100))
             {
                 try
                 {
 
-                    System.Console.WriteLine("adding Area Listing chunk");
-                    var batch = regionServiceInstance.context.CreateBatchWrite<AreaListing>();
+                    System.Console.WriteLine("adding Area Master chunk");
+                    var batch = regionServiceInstance.context.CreateBatchWrite<AreaMaster>();
                     batch.AddPutItems(obj);
                     batch.ExecuteAsync().Wait();
 
-                    System.Console.WriteLine("Area Listing Chunk added");
+                    System.Console.WriteLine("Area Master Chunk added");
                     //regionServiceInstance.context.SaveAsync(obj).Wait();
                 }
                 catch (Exception e)

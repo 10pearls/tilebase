@@ -8,8 +8,8 @@ using System.Text;
 
 namespace CustomRegionPOC.Common.Model
 {
-    [DynamoDBTable("tile_area_listing_v2")]
-    public class AreaListing : ICloneable
+    [DynamoDBTable("tile_area_master_v2")]
+    public class AreaMaster : ICloneable
     {
         //area
 
@@ -23,14 +23,16 @@ namespace CustomRegionPOC.Common.Model
 
         public string OriginalPolygon { get; set; }
 
+        public bool IsPredefine { get; set; }
+
         public object Clone()
         {
             return this.MemberwiseClone();
         }
 
-        public static AreaListing ConvertToEntity(Dictionary<string, AttributeValue> item)
+        public static AreaMaster ConvertToEntity(Dictionary<string, AttributeValue> item)
         {
-            AreaListing tempObj = new AreaListing();
+            AreaMaster tempObj = new AreaMaster();
             Type type = tempObj.GetType();
 
             foreach (string attr in item.Keys)
@@ -49,9 +51,9 @@ namespace CustomRegionPOC.Common.Model
             return tempObj;
         }
 
-        public static List<AreaListing> ConvertToEntity(List<Dictionary<string, AttributeValue>> item)
+        public static List<AreaMaster> ConvertToEntity(List<Dictionary<string, AttributeValue>> item)
         {
-            List<AreaListing> listings = new List<AreaListing>();
+            List<AreaMaster> listings = new List<AreaMaster>();
 
             foreach (Dictionary<string, AttributeValue> currentItem in item)
             {
