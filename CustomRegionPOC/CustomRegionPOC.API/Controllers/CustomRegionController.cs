@@ -42,7 +42,7 @@ namespace CustomRegionPOC.API.Controllers
             {
                 listings = this.service.GetListing(area).Result;
             }));
-            
+
             Task.WaitAll(tasks.ToArray());
 
             return listings;
@@ -73,7 +73,14 @@ namespace CustomRegionPOC.API.Controllers
         [Route("GetArea/{id}")]
         public async Task<dynamic> GetArea(string id)
         {
-            return await this.service.GetArea(id);
+            string beds = Request.Query["beds"];
+            string bathsFull = Request.Query["bathsFull"];
+            string bathsHalf = Request.Query["bathsHalf"];
+            string propertyAddressId = Request.Query["propertyAddressId"];
+            string averageValue = Request.Query["averageValue"];
+            string averageRent = Request.Query["averageRent"];
+
+            return await this.service.GetArea(id, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent);
         }
     }
 }

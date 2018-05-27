@@ -318,12 +318,15 @@ namespace CustomRegionPOC.Console
             List<string> nonKeyAttributes = new List<string>();
 
             nonKeyAttributes.Add("AreaID");
+            nonKeyAttributes.Add("IsPredefine");
             nonKeyAttributes.Add("PropertyID");
             nonKeyAttributes.Add("PropertyAddressID");
+            nonKeyAttributes.Add("PropertyAddressName");
             nonKeyAttributes.Add("BathsFull");
             nonKeyAttributes.Add("BathsHalf");
             nonKeyAttributes.Add("Beds");
             nonKeyAttributes.Add("AverageValue");
+            nonKeyAttributes.Add("AverageRent");
             nonKeyAttributes.Add("Latitude");
             nonKeyAttributes.Add("Longitude");
 
@@ -334,7 +337,7 @@ namespace CustomRegionPOC.Console
 
             List<KeySchemaElement> propertyAddressIDKeySchema = new List<KeySchemaElement>() {
                 new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "PropertyID", KeyType = KeyType.RANGE }
+                new KeySchemaElement { AttributeName = "IsPredefine", KeyType = KeyType.RANGE }
             };
             globalSecondaryIndexes.Add(new GlobalSecondaryIndex()
             {
@@ -348,82 +351,16 @@ namespace CustomRegionPOC.Console
                 },
             });
 
-            //List<KeySchemaElement> bathsFullKeySchema = new List<KeySchemaElement>() {
-            //    new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-            //    new KeySchemaElement { AttributeName = "BathsFull", KeyType = KeyType.RANGE }
-            //};
-            //localSecondaryIndexes.Add(new LocalSecondaryIndex()
-            //{
-            //    IndexName = "BathsFullIndex",
-            //    Projection = projection,
-            //    KeySchema = bathsFullKeySchema
-            //});
-
-            //List<KeySchemaElement> bathsHalfKeySchema = new List<KeySchemaElement>() {
-            //    new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-            //    new KeySchemaElement { AttributeName = "BathsHalf", KeyType = KeyType.RANGE }
-            //};
-            //localSecondaryIndexes.Add(new LocalSecondaryIndex()
-            //{
-            //    IndexName = "BathsHalfIndex",
-            //    Projection = projection,
-            //    KeySchema = bathsHalfKeySchema
-            //});
-
-            //List<KeySchemaElement> bedsKeySchema = new List<KeySchemaElement>() {
-            //    new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-            //    new KeySchemaElement { AttributeName = "Beds", KeyType = KeyType.RANGE }
-            //};
-            //localSecondaryIndexes.Add(new LocalSecondaryIndex()
-            //{
-            //    IndexName = "BedsIndex",
-            //    Projection = projection,
-            //    KeySchema = bedsKeySchema
-            //});
-
-            //List<KeySchemaElement> areaIDKeySchema = new List<KeySchemaElement>() {
-            //    new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
-            //    new KeySchemaElement { AttributeName = "DefaultParentAreaID", KeyType = KeyType.RANGE }
-            //};
-            //localSecondaryIndexes.Add(new LocalSecondaryIndex()
-            //{
-            //    IndexName = "AreaIdIndex",
-            //    Projection = projection,
-            //    KeySchema = areaIDKeySchema
-            //});
-
-
-
-
-            //List<string> nonKeyAttributes = new List<string>();
-            //nonKeyAttributes.Add("PropertyAddressID");
-            //nonKeyAttributes.Add("BathsFull");
-            //nonKeyAttributes.Add("BathsHalf");
-            //nonKeyAttributes.Add("Beds");
-            //nonKeyAttributes.Add("AverageValue");
-
-            //projection.NonKeyAttributes = nonKeyAttributes;
-
             List<AttributeDefinition> attributeDefinition = new List<AttributeDefinition>()
                 {
                     new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "IsPredefine", AttributeType = ScalarAttributeType.N },
                     new AttributeDefinition { AttributeName = "PropertyID", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
-                    //new AttributeDefinition { AttributeName = "Guid", AttributeType = ScalarAttributeType.N },
-                    //new AttributeDefinition { AttributeName = "PropertyAddressID", AttributeType = ScalarAttributeType.S },
-                    //new AttributeDefinition { AttributeName = "BathsFull", AttributeType = ScalarAttributeType.S },
-                    //new AttributeDefinition { AttributeName = "BathsHalf", AttributeType = ScalarAttributeType.S },
-                    //new AttributeDefinition { AttributeName = "Beds", AttributeType = ScalarAttributeType.S },
-                    //new AttributeDefinition { AttributeName = "AverageValue", AttributeType = ScalarAttributeType.S },
-                    //new AttributeDefinition { AttributeName = "Latitude", AttributeType = ScalarAttributeType.S },
-                    //new AttributeDefinition { AttributeName = "Longitude", AttributeType = ScalarAttributeType.S },
                 };
 
             regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, globalSecondaryIndexes, localSecondaryIndexes, "Tile", "PropertyID").Wait();
-            //regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, null, localSecondaryIndexes, "Tile", "PropertyID").Wait();
 
-            object lockObj = new object();
-            int index = 0;
             List<Property> properties = new List<Property>();
             Random rnd = new Random();
             foreach (var obj in propertyMigration)
@@ -436,10 +373,9 @@ namespace CustomRegionPOC.Console
                 tempObj.Tile = regionServiceInstance.GetTileStr((int)tempTile.Row, (int)tempTile.Column);
                 tempObj.Type = RecordType.Listing;
                 tempObj.Guid = rnd.Next(1, 16);
+                tempObj.IsPredefine = true;
                 tempObj.Name = obj.PropertyAddressName;
                 properties.Add(tempObj);
-
-
             };
 
 

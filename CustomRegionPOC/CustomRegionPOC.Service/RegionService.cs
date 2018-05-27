@@ -119,7 +119,7 @@ namespace CustomRegionPOC.Service
             return listings;
         }
 
-        public async Task<dynamic> GetArea(string Id)
+        public async Task<dynamic> GetArea(string id, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
             List<Task> tasks = new List<Task>();
 
@@ -130,7 +130,7 @@ namespace CustomRegionPOC.Service
             String keyConditionExpression = "AreaID = :v_areaId";
             Dictionary<string, AttributeValue> expressionAttributeValues = new Dictionary<string, AttributeValue> {
                 {":v_areaId", new AttributeValue {
-                    S = Id
+                    S = id
                 } }
             };
 
@@ -155,30 +155,51 @@ namespace CustomRegionPOC.Service
             object lockObj = new object();
 
             DateTime startDate = DateTime.Now;
-            tasks.Add(new TaskFactory().StartNew(() =>
+            Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
+
+            if (!string.IsNullOrEmpty(beds))
             {
-                Parallel.For(0, 11, segment =>
+                queryFilter.Add("Beds", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = beds } } });
+            }
+            if (!string.IsNullOrEmpty(bathsFull))
+            {
+                queryFilter.Add("BathsFull", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsFull } } });
+            }
+            if (!string.IsNullOrEmpty(bathsHalf))
+            {
+                queryFilter.Add("BathsHalf", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsHalf } } });
+            }
+            if (!string.IsNullOrEmpty(propertyAddressId))
+            {
+                queryFilter.Add("PropertyAddressID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = propertyAddressId } } });
+            }
+            if (!string.IsNullOrEmpty(averageValue))
+            {
+                queryFilter.Add("AverageValue", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageValue } } });
+            }
+            if (!string.IsNullOrEmpty(averageRent))
+            {
+                queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
+            }
+
+            Parallel.For(0, 11, segment =>
+            {
+                string innerId = id + "-" + segment;
+                Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+                keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(innerId) } });
+                keyConditions.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
+
+                var request = new QueryRequest
                 {
-                    string innerId = Id + "-" + segment;
+                    TableName = propertyTableName,
+                    IndexName = "AreaIDIndex",
+                    KeyConditions = keyConditions,
+                    QueryFilter = queryFilter
+                };
+                var response = dynamoDBClient.QueryAsync(request).Result;
 
-                    Dictionary<string, AttributeValue> areaExpressionAttributeValues = new Dictionary<string, AttributeValue> {
-                        {":v_areaId", new AttributeValue {
-                            S = innerId
-                        } }
-                    };
-
-                    var request = new QueryRequest
-                    {
-                        TableName = propertyTableName,
-                        IndexName = "AreaIDIndex",
-                        KeyConditionExpression = keyConditionExpression,
-                        ExpressionAttributeValues = areaExpressionAttributeValues
-                    };
-                    var response = dynamoDBClient.QueryAsync(request).Result;
-                    
-                    areaProperties.Add(Property.ConvertToEntity(response.Items));
-                });
-            }));
+                areaProperties.Add(Property.ConvertToEntity(response.Items));
+            });
 
             Task.WaitAll(tasks.ToArray());
 
@@ -189,7 +210,7 @@ namespace CustomRegionPOC.Service
             {
                 Area = listingArea,
                 PropertyCount = areaProperties.SelectMany(x => x).ToList().Count(),
-                //Properties = areaProperties.SelectMany(x => x).ToList(),
+                Properties = areaProperties.SelectMany(x => x).ToList(),
                 TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
             };
         }
@@ -306,8 +327,8 @@ namespace CustomRegionPOC.Service
                     dataStream = response.GetResponseStream();
                     StreamReader reader = new StreamReader(dataStream);
                     string responseFromServer = reader.ReadToEnd();
-            //Console.WriteLine(responseFromServer);
-            reader.Close();
+                    //Console.WriteLine(responseFromServer);
+                    reader.Close();
                     dataStream.Close();
                     response.Close();
 

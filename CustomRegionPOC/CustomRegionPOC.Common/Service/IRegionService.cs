@@ -18,6 +18,6 @@ namespace CustomRegionPOC.Common.Service
 
         Task<List<AreaListing>> GetArea();
 
-        Task<dynamic> GetArea(string id);
+        Task<dynamic> GetArea(string id, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null);
     }
 }
