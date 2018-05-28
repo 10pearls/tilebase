@@ -213,7 +213,10 @@ namespace CustomRegionPOC.Service
                 IndexName = "AreaIDIndex",
                 ReturnConsumedCapacity = "TOTAL",
                 KeyConditions = keyConditions,
-                QueryFilter = queryFilter
+                QueryFilter = queryFilter,
+                AttributesToGet = new List<string> { "Latitude", "Longitude" },
+                Select = "SPECIFIC_ATTRIBUTES"
+
             };
             var response = dynamoDBClient.QueryAsync(request).Result;
 
@@ -228,7 +231,7 @@ namespace CustomRegionPOC.Service
             {
                 Area = listingArea,
                 PropertyCount = areaProperties.SelectMany(x => x).ToList().Count(),
-                Properties = areaProperties.SelectMany(x => x).ToList(),
+                Properties = areaProperties.SelectMany(x => x).Select(x => new { Latitude = x.Latitude, Longitude = x.Longitude }).ToList(),
                 ScannedCount = response.ScannedCount,
                 ReturnConsumedCapacity = response.ConsumedCapacity,
                 TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
