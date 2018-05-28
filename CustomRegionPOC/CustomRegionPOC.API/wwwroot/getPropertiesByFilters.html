@@ -41,6 +41,7 @@
         var mapOnClickEvent;
         var areaData;
         var rectangle;
+        var infoWindow
 
         var initialBounds = {
           north: 38.99209160356612,
@@ -48,7 +49,8 @@
           east: -77.08265178826906,
           west: -77.10591915277098
         };
-        var boundingBoxCoordinates = initialBounds;
+
+        var boundingBoxCoordinates = $.extend({}, initialBounds)
 
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
@@ -85,13 +87,6 @@
 
             var markers = [];
 
-        var initialBounds = {
-          north: 38.99209160356612,
-          south: 38.976092526039,
-          east: -77.08265178826906,
-          west: -77.10591915277098
-        };
-
         // Define the rectangle and set its editable property to true.
         rectangle = new google.maps.Rectangle({
           bounds: initialBounds,
@@ -107,7 +102,24 @@
         infoWindow = new google.maps.InfoWindow();
 
 
-      function showNewRect(event) {
+            $.getJSON("api/CustomRegion/getArea", function (json) {
+                areaData = json;
+                $('#areaId').empty();
+                $('#areaId').append($('<option>').text("Select"));
+                $.each(json, function (i, obj) {
+                    $('#areaId').append($('<option>').text(obj.areaName).attr('value', obj.areaID));
+                });
+            });
+        }
+
+        function newMap() {
+            return new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 38.984653, lng: -77.094711 },
+                zoom: 15
+            });
+        }
+
+        function showNewRect(event) {
         var ne = rectangle.getBounds().getNorthEast();
         var sw = rectangle.getBounds().getSouthWest();
 
@@ -128,29 +140,26 @@
         infoWindow.open(map);
       }
 
-            $.getJSON("api/CustomRegion/getArea", function (json) {
-                areaData = json;
-                $('#areaId').empty();
-                $('#areaId').append($('<option>').text("Select"));
-                $.each(json, function (i, obj) {
-                    $('#areaId').append($('<option>').text(obj.areaName).attr('value', obj.areaID));
-                });
-            });
-        }
-
-        function newMap() {
-            return new google.maps.Map(document.getElementById('map'), {
-                center: { lat: 38.984653, lng: -77.094711 },
-                zoom: 15
-            });
-        }
-
         function resetPolygons() {
             map = newMap();
             map.overlayMapTypes.insertAt(0, tilelayer);
             var opt = { minZoom: 10 , disableDoubleClickZoom: false};
             map.setOptions(opt);
-            // google.maps.event.addListener(map, 'click', mapOnClickEvent);
+
+        rectangle.setMap(null);
+
+        rectangle = new google.maps.Rectangle({
+          bounds: initialBounds,
+          editable: true,
+          draggable: true
+        });
+
+        rectangle.setMap(map);
+
+            // Add an event listener on the rectangle.
+            rectangle.addListener('bounds_changed', showNewRect);
+
+            infoWindow = new google.maps.InfoWindow();
         }
 
         function panMap(lat, lng) {
@@ -193,10 +202,10 @@
 
                 var poly = new google.maps.Polygon({
                     paths: res.area[0].points,
-                    strokeColor: '#957aff',
+                    strokeColor: '#FF0000',
                     strokeOpacity: 0.8,
                     strokeWeight: 2,
-                    fillColor: '#957aff',
+                    fillColor: '#FF0000',
                     fillOpacity: 0.35
                 });
                 poly.setMap(map);
@@ -214,7 +223,9 @@
                     });
                 }
 
-                rectangle.setOptions({draggable: false});
+                $("#DynamoStats").text("Total Dynamo Query Time:" + res.totalQueryExecutionTime);
+
+                // rectangle.setOptions({draggable: false});
 
             });
 
@@ -230,6 +241,7 @@
     <!-- <input type="button" value="find regions" onclick="window.location.href='drawRegion.html'"/>
     <br><br> -->
     <button onclick="resetPolygons()">Reset regions</button>
+    <span id="DynamoStats" style="color:red;font-size:large;background-color:aqua"></span> <br />
     <br><br>
     <!-- <button onclick="panMap()">Pan Map</button> -->
     <!-- City name: <input style="margin-left: 10px;" type="text" name="cityName" id="city"><br> -->
