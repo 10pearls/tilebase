@@ -526,26 +526,33 @@ namespace CustomRegionPOC.Service
 
         private async Task<List<Property>> getRegionByProperty(List<Point> points)
         {
-            List<Property> property = new List<Property>();
+            List<List<Property>> property = new List<List<Property>>();
             try
             {
-                foreach (var obj in points)
+                Parallel.ForEach(points, obj =>
                 {
+                    Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+                    keyConditions.Add("Tile", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(GetTileStr(obj.X, obj.Y)) } });
 
-                    List<ScanCondition> conditions = new List<ScanCondition>();
-                    //conditions.Add(new ScanCondition("Tile", ScanOperator.In, obj.Select(x => GetTileStr(x.X, x.Y)).ToArray()));
-                    conditions.Add(new ScanCondition("Tile", ScanOperator.Equal, GetTileStr(obj.X, obj.Y)));
+                    var request = new QueryRequest
+                    {
+                        TableName = propertyTableName,
+                        ReturnConsumedCapacity = "TOTAL",
+                        KeyConditions = keyConditions,
+                        AttributesToGet = new List<string> { "Latitude", "Longitude" },
+                        Select = "SPECIFIC_ATTRIBUTES"
 
-                    property.AddRange(await context.ScanAsync<Property>(conditions).GetRemainingAsync());
+                    };
+                    var response = dynamoDBClient.QueryAsync(request).Result;
 
-
-                }
+                    property.Add(Property.ConvertToEntity(response.Items));
+                });
             }
             catch (Exception ex)
             {
                 throw ex;
             }
-            return property;
+            return property.SelectMany(x => x).ToList();
         }
 
         private List<AreaMaster> filterRegionList(List<AreaMaster> areas, decimal lat, decimal lng)
