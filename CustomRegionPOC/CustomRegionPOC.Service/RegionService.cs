@@ -196,8 +196,11 @@ namespace CustomRegionPOC.Service
                 queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
             }
 
-            queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
-            queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
+            if (!string.IsNullOrEmpty(south) && !string.IsNullOrEmpty(north) && !string.IsNullOrEmpty(east) && !string.IsNullOrEmpty(west))
+            {
+                queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
+                queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
+            }
 
 
             //Parallel.For(0, 11, segment =>
