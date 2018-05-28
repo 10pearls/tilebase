@@ -175,10 +175,12 @@
         }
 
         function getPropertiesByFilters(areaId, beds, bathsFull, bathsHalf, getByBoundingBox) {
-            
+     
             console.log(areaId, beds, bathsFull, bathsHalf);
 
-            if (!areaId) {
+            if (areaId == "Select") {
+                // throw new Error("area name needed");
+                alert("Area Name Needed");
                 throw new Error("area name needed");
             }
 
