@@ -230,7 +230,8 @@
                     });
                 }
 
-                $("#DynamoStats").text("Total Dynamo Query Time:" + res.totalQueryExecutionTime);
+                $("#queryCount").text("Total Dynamo Query Time:" + res.totalQueryExecutionTime);
+                $("#propertyCount").text("Total Properties Returned:" + res.propertyCount);
 
                 // rectangle.setOptions({draggable: false});
 
@@ -248,7 +249,8 @@
     <!-- <input type="button" value="find regions" onclick="window.location.href='drawRegion.html'"/>
     <br><br> -->
     <button onclick="resetPolygons(true)">Reset regions</button>
-    <span id="DynamoStats" style="color:red;font-size:large;background-color:aqua"></span> <br />
+    <span id="queryCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+    <span id="propertyCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
     
     <!-- <button onclick="panMap()">Pan Map</button> -->
     <!-- City name: <input style="margin-left: 10px;" type="text" name="cityName" id="city"><br> -->
