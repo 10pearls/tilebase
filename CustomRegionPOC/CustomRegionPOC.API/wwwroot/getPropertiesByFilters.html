@@ -129,11 +129,10 @@
 
             $.getJSON("api/CustomRegion/getArea", function (json) {
                 areaData = json;
-                $('#areaName').empty();
-                $('#areaName').append($('<option>').text("Select"));
+                $('#areaId').empty();
+                $('#areaId').append($('<option>').text("Select"));
                 $.each(json, function (i, obj) {
-
-                    $('#areaName').append($('<option>').text(obj.areaName).attr('value', obj.areaID));
+                    $('#areaId').append($('<option>').text(obj.areaName).attr('value', obj.areaID));
                 });
             });
         }
@@ -160,25 +159,28 @@
             map.panTo(myLatlng);
         }
 
-        function getPropertiesByFilters(areaName, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent) {
-            console.log(areaName, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent);
+        function getPropertiesByFilters(areaId, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent) {
+            console.log(areaId, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent);
 
-            if (!areaName) {
+            if (!areaId) {
                 throw new Error("area name needed");
             }
-            debugger;
 
-            var queryParams = "beds=" + beds + "&bathsFull=" + bathsFull + "&bathsHalf=" + bathsHalf;
+            var boundingBoxCoordinatesQueryParams = `north=${boundingBoxCoordinates.north}`;
+            boundingBoxCoordinatesQueryParams += `&east=${boundingBoxCoordinates.east}`;
+            boundingBoxCoordinatesQueryParams += `&south=${boundingBoxCoordinates.south}`;
+            boundingBoxCoordinatesQueryParams += `&west=${boundingBoxCoordinates.west}`;
+
+            var queryParams = "&beds=" + beds + "&bathsFull=" + bathsFull + "&bathsHalf=" + bathsHalf;
             queryParams = queryParams + "&propertyAddressId=" + propertyAddressId + "&averageValue=" + averageValue;
             queryParams = queryParams + "&averageRent=" + averageRent;
 
-
             var url = '/api/customregion/getArea/';
-            url += areaName;
+            url += areaId;
             url += '/?';
+            url += boundingBoxCoordinatesQueryParams;
             url += queryParams;
             console.log(url);
-
 
             var timer = new Date();
             getAjax(url, function (res) {
@@ -235,7 +237,7 @@
         <tr>
             <td>Area</td>
             <td>
-                <select class="form-control select2" id="areaName"></select>
+                <select class="form-control select2" id="areaId"></select>
             </td>
         </tr>
         <tr>
@@ -314,7 +316,7 @@
         <tr>
             <td colspan="2">
                 <button onclick="getPropertiesByFilters(
-    document.getElementById('areaName').value,
+    document.getElementById('areaId').value,
     document.getElementById('beds').value,
     document.getElementById('bathsFull').value,
     document.getElementById('bathsHalf').value,

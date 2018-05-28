@@ -73,6 +73,10 @@ namespace CustomRegionPOC.API.Controllers
         [Route("GetArea/{id}")]
         public async Task<dynamic> GetArea(string id)
         {
+            string north = Request.Query["north"];
+            string east = Request.Query["east"];
+            string south = Request.Query["south"];
+            string west = Request.Query["west"];
             string beds = Request.Query["beds"];
             string bathsFull = Request.Query["bathsFull"];
             string bathsHalf = Request.Query["bathsHalf"];
