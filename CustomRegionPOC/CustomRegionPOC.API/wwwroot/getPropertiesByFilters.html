@@ -40,6 +40,7 @@
         var tilelayer;
         var mapOnClickEvent;
         var areaData;
+        var rectangle;
 
         var initialBounds = {
           north: 38.99209160356612,
@@ -79,7 +80,7 @@
             });
 
             map.overlayMapTypes.insertAt(0, tilelayer);
-            var opt = { minZoom: 10 };
+            var opt = { minZoom: 10, disableDoubleClickZoom: false };
             map.setOptions(opt);
 
             var markers = [];
@@ -147,7 +148,7 @@
         function resetPolygons() {
             map = newMap();
             map.overlayMapTypes.insertAt(0, tilelayer);
-            var opt = { minZoom: 10 };
+            var opt = { minZoom: 10 , disableDoubleClickZoom: false};
             map.setOptions(opt);
             // google.maps.event.addListener(map, 'click', mapOnClickEvent);
         }
@@ -200,7 +201,7 @@
                 });
                 poly.setMap(map);
                 //panMap(res.area[0].points[0].lat, res.area[0].points[0].lng);
-                debugger;
+                //debugger;
 
 
                 for (var i = 0; i < res.properties.length; i++) {
@@ -211,8 +212,9 @@
                         title: 'Area',
                         content: pointLatLng
                     });
-
                 }
+
+                rectangle.setOptions({draggable: false});
 
             });
 

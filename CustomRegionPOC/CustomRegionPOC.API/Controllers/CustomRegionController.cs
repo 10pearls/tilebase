@@ -84,7 +84,7 @@ namespace CustomRegionPOC.API.Controllers
             string averageValue = Request.Query["averageValue"];
             string averageRent = Request.Query["averageRent"];
 
-            return await this.service.GetArea(id, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent);
+            return await this.service.GetArea(id, north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent);
         }
     }
 }

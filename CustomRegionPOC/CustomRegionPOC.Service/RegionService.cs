@@ -142,7 +142,7 @@ namespace CustomRegionPOC.Service
             return listings;
         }
 
-        public async Task<dynamic> GetArea(string id, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
+        public async Task<dynamic> GetArea(string id, string north, string east, string south, string west, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
             List<Task> tasks = new List<Task>();
 
@@ -195,6 +195,10 @@ namespace CustomRegionPOC.Service
             {
                 queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
             }
+
+            queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() {N = south}, new AttributeValue() {N = north}}});
+            queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() {N = west}, new AttributeValue() {N = east}}});
+            
 
             Parallel.For(0, 11, segment =>
             {
