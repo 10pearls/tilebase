@@ -21,7 +21,7 @@ namespace CustomRegionPOC.API.Controllers
         }
 
         [HttpGet("{lat}/{lng}", Name = "Get")]
-        public async Task<List<Area>> Get(decimal lat, decimal lng)
+        public async Task<List<AreaMaster>> Get(decimal lat, decimal lng)
         {
             return await this.service.Get(lat, lng);
         }

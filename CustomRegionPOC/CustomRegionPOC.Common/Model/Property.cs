@@ -192,11 +192,11 @@ namespace CustomRegionPOC.Common.Model
 
         public static List<Property> ConvertToEntity(List<Dictionary<string, AttributeValue>> items)
         {
-            List<Property> listings = new List<Property>();
+            List<Property> retItems = new List<Property>();
 
-            Parallel.ForEach(items, currentItem => { listings.Add(ConvertToEntity(currentItem)); });
+            Parallel.ForEach(items, currentItem => { retItems.Add(ConvertToEntity(currentItem)); });
 
-            return listings;
+            return retItems;
         }
 
         public object Clone()

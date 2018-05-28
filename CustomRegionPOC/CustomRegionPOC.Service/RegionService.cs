@@ -25,7 +25,7 @@ namespace CustomRegionPOC.Service
     public class RegionService : IRegionService
     {
         private string areaTableName = "tile_area_v2";
-        private string areaListingTableName = "tile_area_master_v2";
+        private string areaMasterTableName = "tile_area_master_v2";
         private string propertyTableName = "tile_property_v2";
 
         private AmazonDynamoDBClient dynamoDBClient;
@@ -46,12 +46,29 @@ namespace CustomRegionPOC.Service
 
         public async Task Create(Area region)
         {
+            string areaId = Guid.NewGuid().ToString();
+            region.AreaID = areaId;
+            AreaMaster areaMaster = new AreaMaster()
+            {
+                AreaID = areaId,
+                AreaName = region.Name,
+                GUID = areaId,
+                IsPredefine = false,
+                OriginalPolygon = "",
+                Points = region.Points
+            };
+
+            List<Task> tasks = new List<Task>();
+            tasks.Add(Task.Factory.StartNew(() => { this.context.SaveAsync<AreaMaster>(areaMaster).Wait(); }));
+
             List<Tuple<PointF, PointF>> tuples = GenerateTileTuples(region.Points);
             List<Area> areas = this.transformRegion(region, this.Rasterize(tuples));
             SaveAreas(areas);
+
+            Task.WaitAll(tasks.ToArray());
         }
 
-        public async Task<List<Area>> Get(decimal lat, decimal lng)
+        public async Task<List<AreaMaster>> Get(decimal lat, decimal lng)
         {
             return this.filterRegionList(await this.getRegionByArea(lat, lng), lat, lng);
         }
@@ -96,7 +113,7 @@ namespace CustomRegionPOC.Service
             List<Property> listing = getRegionByProperty(tiles).Result;
             Parallel.ForEach(listing, item =>
             {
-                if (this.isPointInPolygon(area, item.Latitude, item.Longitude))
+                if (this.isPointInPolygon(area.Points, item.Latitude, item.Longitude))
                 {
                     listings.Add(new Listing
                     {
@@ -114,7 +131,7 @@ namespace CustomRegionPOC.Service
         {
             var request = new ScanRequest
             {
-                TableName = areaListingTableName,
+                TableName = areaMasterTableName,
                 IndexName = "AreaIDIndex"
             };
 
@@ -141,7 +158,7 @@ namespace CustomRegionPOC.Service
 
                 QueryRequest queryRequest = new QueryRequest()
                 {
-                    TableName = areaListingTableName,
+                    TableName = areaMasterTableName,
                     ReturnConsumedCapacity = "TOTAL",
                     KeyConditions = keyConditions,
                     QueryFilter = areaQueryFilter
@@ -289,6 +306,18 @@ namespace CustomRegionPOC.Service
             });
         }
 
+        public void SaveAreas(List<AreaMaster> areas)
+        {
+            Parallel.ForEach(areas.ChunkBy<AreaMaster>(200), (item, state, index) =>
+            {
+                Console.WriteLine("Initiating a new chunk. Index: " + index);
+                var bulkInsert = context.CreateBatchWrite<AreaMaster>();
+                bulkInsert.AddPutItems(item);
+                bulkInsert.ExecuteAsync().Wait();
+                Console.WriteLine("Chunk inserted successfully. Index" + index);
+            });
+        }
+
         public List<Tile> GetCoordinateTile(List<PointF> points, int zoomlevel = 14)
         {
             List<Tile> tilesCoordinates = new List<Tile>();
@@ -410,22 +439,26 @@ namespace CustomRegionPOC.Service
 
             foreach (Point tile in tiles)
             {
-                areas.Add(new Area
-                {
-                    Tile = GetTileStr(tile.X, tile.Y),
-                    Name = area.Name,
-                    Type = RecordType.Area,
-                    Points = area.Points,
-                    OriginalPolygon = "((" + string.Join(", ", locationPoints) + "))",
-                    Tiles = area.Tiles,
-                    Guid = Guid.NewGuid().ToString(),
-                });
+                Area tempObj = new Area();
+
+                tempObj = (Area)area.Clone();
+
+                tempObj.Tile = GetTileStr(tile.X, tile.Y);
+                tempObj.Type = RecordType.Area;
+                tempObj.OriginalPolygon = "((" + string.Join(", ", locationPoints) + "))";
+                tempObj.Tiles = null;
+                tempObj.Guid = Guid.NewGuid().ToString();
+                tempObj.OriginalPolygon = "";
+                tempObj.Points = null;
+                tempObj.Guid = Guid.NewGuid().ToString();
+
+                areas.Add(tempObj);
             }
 
             return areas;
         }
 
-        private async Task<List<Area>> getRegionByArea(decimal lat, decimal lng)
+        private async Task<List<AreaMaster>> getRegionByArea(decimal lat, decimal lng)
         {
             List<PointF> points = new List<PointF>();
             points.Add(new PointF
@@ -439,16 +472,43 @@ namespace CustomRegionPOC.Service
             return await getRegionByArea(coordinates.Select(x => new Point((int)x.Row, (int)x.Column)).ToList());
         }
 
-        private async Task<List<Area>> getRegionByArea(List<Point> points)
+        private async Task<List<AreaMaster>> getRegionByArea(List<Point> points)
         {
-            List<Area> area = new List<Area>();
+            List<List<Area>> allAreas = new List<List<Area>>();
+            List<List<AreaMaster>> allAreasMaster = new List<List<AreaMaster>>();
+            Parallel.ForEach(points, point =>
+            {
+                Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+                keyConditions.Add("Tile", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(GetTileStr(point.X, point.Y)) } });
 
-            List<ScanCondition> conditions = new List<ScanCondition>();
-            conditions.Add(new ScanCondition("Tile", ScanOperator.In, points.Select(x => GetTileStr(x.X, x.Y)).ToArray()));
+                QueryRequest queryRequest = new QueryRequest()
+                {
+                    TableName = areaTableName,
+                    IndexName = "AreaIDIndex",
+                    KeyConditions = keyConditions,
+                };
 
-            area = await context.ScanAsync<Area>(conditions).GetRemainingAsync();
+                var result = dynamoDBClient.QueryAsync(queryRequest).Result;
+                allAreas.Add(Area.ConvertToEntity(result.Items));
+            });
 
-            return area;
+
+            Parallel.ForEach(allAreas.SelectMany(x => x).Select(x => x.AreaID).Distinct(), areaId =>
+            {
+                Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+                keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(areaId) } });
+
+                QueryRequest queryRequest = new QueryRequest()
+                {
+                    TableName = areaMasterTableName,
+                    KeyConditions = keyConditions,
+                };
+
+                var result = dynamoDBClient.QueryAsync(queryRequest).Result;
+                allAreasMaster.Add(AreaMaster.ConvertToEntity(result.Items));
+            });
+
+            return allAreasMaster.SelectMany(x => x).ToList();
         }
 
         private async Task<List<Property>> getRegionByProperty(List<Point> points)
@@ -475,13 +535,13 @@ namespace CustomRegionPOC.Service
             return property;
         }
 
-        private List<Area> filterRegionList(List<Area> areas, decimal lat, decimal lng)
+        private List<AreaMaster> filterRegionList(List<AreaMaster> areas, decimal lat, decimal lng)
         {
-            List<Area> filteredAreas = new List<Area>();
+            List<AreaMaster> filteredAreas = new List<AreaMaster>();
 
             Parallel.ForEach(areas, area =>
             {
-                if (isPointInPolygon(area, lat, lng))
+                if (isPointInPolygon(area.Points, lat, lng))
                 {
                     filteredAreas.Add(area);
                 }
@@ -490,15 +550,15 @@ namespace CustomRegionPOC.Service
             return filteredAreas;
         }
 
-        private bool isPointInPolygon(Area area, decimal lat, decimal lng)
+        private bool isPointInPolygon(List<LocationPoint> points, decimal lat, decimal lng)
         {
-            decimal[] polyX = area.Points.Select(a => a.Lat).ToArray();
-            decimal[] polyY = area.Points.Select(a => a.Lng).ToArray();
+            decimal[] polyX = points.Select(a => a.Lat).ToArray();
+            decimal[] polyY = points.Select(a => a.Lng).ToArray();
 
             decimal x = lat;
             decimal y = lng;
 
-            int polyCorners = area.Points.Count;
+            int polyCorners = points.Count;
             int i, j = polyCorners - 1;
             bool oddNodes = false;
 

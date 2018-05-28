@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace CustomRegionPOC.Common.Model
 {
@@ -51,15 +52,13 @@ namespace CustomRegionPOC.Common.Model
             return tempObj;
         }
 
-        public static List<AreaMaster> ConvertToEntity(List<Dictionary<string, AttributeValue>> item)
+        public static List<AreaMaster> ConvertToEntity(List<Dictionary<string, AttributeValue>> items)
         {
-            List<AreaMaster> listings = new List<AreaMaster>();
+            List<AreaMaster> retItems = new List<AreaMaster>();
 
-            foreach (Dictionary<string, AttributeValue> currentItem in item)
-            {
-                listings.Add(ConvertToEntity(currentItem));
-            }
-            return listings;
+            Parallel.ForEach(items, currentItem => { retItems.Add(ConvertToEntity(currentItem)); });
+
+            return retItems;
         }
 
     }

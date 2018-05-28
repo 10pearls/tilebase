@@ -1,7 +1,11 @@
 ﻿using Amazon.DynamoDBv2.DataModel;
+using Amazon.DynamoDBv2.Model;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace CustomRegionPOC.Common.Model
 {
@@ -67,6 +71,44 @@ namespace CustomRegionPOC.Common.Model
         public List<LocationPoint> Points { get; set; }
 
         public List<Tile> Tiles { get; set; }
+
+        public static Area ConvertToEntity(Dictionary<string, AttributeValue> item)
+        {
+            Area tempObj = new Area();
+            Type type = tempObj.GetType();
+
+            foreach (string attr in item.Keys)
+            {
+                if (attr == "Longitude")
+                {
+                    tempObj.Longitude = Convert.ToDecimal(item[attr].N);
+                }
+                else if (attr == "Latitude")
+                {
+                    tempObj.Latitude = Convert.ToDecimal(item[attr].N);
+                }
+                else if (attr == "Points")
+                {
+                    tempObj.Points = item[attr].L.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.M["Lat"].N), Lng = Convert.ToDecimal(x.M["Lng"].N) }).ToList();
+                }
+                else
+                {
+                    PropertyInfo prop = type.GetProperty(attr);
+                    prop.SetValue(tempObj, item[attr].S, null);
+                }
+            }
+
+            return tempObj;
+        }
+
+        public static List<Area> ConvertToEntity(List<Dictionary<string, AttributeValue>> items)
+        {
+            List<Area> retItems = new List<Area>();
+
+            Parallel.ForEach(items, currentItem => { retItems.Add(ConvertToEntity(currentItem)); });
+
+            return retItems;
+        }
 
         public object Clone()
         {

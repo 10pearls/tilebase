@@ -10,7 +10,7 @@ namespace CustomRegionPOC.Common.Service
     {
         Task Create(Area region);
 
-        Task<List<Area>> Get(decimal lat, decimal lng);
+        Task<List<AreaMaster>> Get(decimal lat, decimal lng);
 
         Task SaveListing(Listing listing);
 

@@ -69,8 +69,8 @@
         });
 
         map.overlayMapTypes.insertAt(0, tilelayer);
-        var opt = {minZoom: 8};
-        map.setOptions(opt);
+        //var opt = {minZoom: 8};
+        //map.setOptions(opt);
 
         var markers = [];
 
@@ -100,7 +100,7 @@
 
                 google.maps.event.addListener(marker, 'click', function() {
                     
-                    var markerTitle = res.map(r => r.name).join(', ');
+                    var markerTitle = res.map(r => r.areaName).join(', ');
                     var infoWindow = new google.maps.InfoWindow({
                         content: markerTitle
                     });
@@ -143,8 +143,8 @@
     function resetPolygons() {
         map = newMap();
         map.overlayMapTypes.insertAt(0, tilelayer);
-        var opt = {minZoom: 8};
-        map.setOptions(opt);
+        //var opt = {minZoom: 8};
+        //map.setOptions(opt);
         google.maps.event.addListener(map, 'click', mapOnClickEvent);
     }
 
