@@ -93,7 +93,7 @@
 
         // Define the rectangle and set its editable property to true.
         rectangle = new google.maps.Rectangle({
-          bounds: bounds,
+          bounds: initialBounds,
           editable: true,
           draggable: true
         });
@@ -166,6 +166,7 @@
             if (!areaName) {
                 throw new Error("area name needed");
             }
+            debugger;
 
             var queryParams = "beds=" + beds + "&bathsFull=" + bathsFull + "&bathsHalf=" + bathsHalf;
             queryParams = queryParams + "&propertyAddressId=" + propertyAddressId + "&averageValue=" + averageValue;
