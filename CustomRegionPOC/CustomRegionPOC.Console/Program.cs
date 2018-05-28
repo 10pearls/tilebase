@@ -49,9 +49,9 @@ namespace CustomRegionPOC.Console
                 DataRow[] dtProperties = csvHelper.parseAreaCsv(propertiesPath).Rows.Cast<DataRow>().ToArray();
                 DataRow[] dtPropertyAddresses = csvHelper.parseAreaCsv(propertyAddressPath).Rows.Cast<DataRow>().ToArray();
 
-                migrateAreas(dtAreas);
+                //migrateAreas(dtAreas);
 
-                //migrateProperty(dtProperties, dtPropertyAddresses);
+                migrateProperty(dtProperties, dtPropertyAddresses);
             }
             catch (Exception ex)
             {
@@ -371,7 +371,7 @@ namespace CustomRegionPOC.Console
 
                 Property tempObj = (Property)obj.Clone();
 
-                tempObj.AreaID += "-" + rnd.Next(1, 10);
+                //tempObj.AreaID += "-" + rnd.Next(1, 10);
                 tempObj.Tile = regionServiceInstance.GetTileStr((int)tempTile.Row, (int)tempTile.Column);
                 tempObj.Type = RecordType.Listing;
                 tempObj.Guid = rnd.Next(1, 16);

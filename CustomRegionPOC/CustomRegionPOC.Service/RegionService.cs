@@ -151,16 +151,16 @@ namespace CustomRegionPOC.Service
 
             tasks.Add(new TaskFactory().StartNew(() =>
             {
-                Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+                Dictionary<string, Condition> areaKeyConditions = new Dictionary<string, Condition>();
                 Dictionary<string, Condition> areaQueryFilter = new Dictionary<string, Condition>();
-                keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
+                areaKeyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
                 areaQueryFilter.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
 
                 QueryRequest queryRequest = new QueryRequest()
                 {
                     TableName = areaMasterTableName,
                     ReturnConsumedCapacity = "TOTAL",
-                    KeyConditions = keyConditions,
+                    KeyConditions = areaKeyConditions,
                     QueryFilter = areaQueryFilter
                 };
 
@@ -196,28 +196,29 @@ namespace CustomRegionPOC.Service
                 queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
             }
 
-            queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() {N = south}, new AttributeValue() {N = north}}});
-            queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() {N = west}, new AttributeValue() {N = east}}});
-            
+            queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
+            queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
 
-            Parallel.For(0, 11, segment =>
+
+            //Parallel.For(0, 11, segment =>
+            //{
+            //    string innerId = id + "-" + segment;
+            Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+            keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
+            keyConditions.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
+
+            var request = new QueryRequest
             {
-                string innerId = id + "-" + segment;
-                Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
-                keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(innerId) } });
-                keyConditions.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
+                TableName = propertyTableName,
+                IndexName = "AreaIDIndex",
+                ReturnConsumedCapacity = "TOTAL",
+                KeyConditions = keyConditions,
+                QueryFilter = queryFilter
+            };
+            var response = dynamoDBClient.QueryAsync(request).Result;
 
-                var request = new QueryRequest
-                {
-                    TableName = propertyTableName,
-                    IndexName = "AreaIDIndex",
-                    KeyConditions = keyConditions,
-                    QueryFilter = queryFilter
-                };
-                var response = dynamoDBClient.QueryAsync(request).Result;
-
-                areaProperties.Add(Property.ConvertToEntity(response.Items));
-            });
+            areaProperties.Add(Property.ConvertToEntity(response.Items));
+            //});
 
             Task.WaitAll(tasks.ToArray());
 
@@ -228,6 +229,8 @@ namespace CustomRegionPOC.Service
                 Area = listingArea,
                 PropertyCount = areaProperties.SelectMany(x => x).ToList().Count(),
                 Properties = areaProperties.SelectMany(x => x).ToList(),
+                ScannedCount = response.ScannedCount,
+                ReturnConsumedCapacity = response.ConsumedCapacity,
                 TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
             };
         }
