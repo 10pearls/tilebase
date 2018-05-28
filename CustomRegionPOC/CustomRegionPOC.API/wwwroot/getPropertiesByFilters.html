@@ -140,26 +140,31 @@
         infoWindow.open(map);
       }
 
-        function resetPolygons() {
+        function resetPolygons(resetBoundingBox) {
             map = newMap();
             map.overlayMapTypes.insertAt(0, tilelayer);
             var opt = { minZoom: 10 , disableDoubleClickZoom: false};
             map.setOptions(opt);
 
-        rectangle.setMap(null);
+            if (resetBoundingBox) {
+            rectangle.setMap(null);
 
-        rectangle = new google.maps.Rectangle({
-          bounds: initialBounds,
-          editable: true,
-          draggable: true
-        });
+            rectangle = new google.maps.Rectangle({
+            bounds: initialBounds,
+            editable: true,
+            draggable: true
+            });
+            }
 
-        rectangle.setMap(map);
+            rectangle.setMap(map);
 
             // Add an event listener on the rectangle.
             rectangle.addListener('bounds_changed', showNewRect);
 
+
+
             infoWindow = new google.maps.InfoWindow();
+            $("#DynamoStats").text("");
         }
 
         function panMap(lat, lng) {
@@ -169,10 +174,13 @@
             map.panTo(myLatlng);
         }
 
-        function getPropertiesByFilters(areaId, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent) {
-            console.log(areaId, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent);
+        function getPropertiesByFilters(areaId, beds, bathsFull, bathsHalf, getByBoundingBox) {
+     
+            console.log(areaId, beds, bathsFull, bathsHalf);
 
-            if (!areaId) {
+            if (areaId == "Select") {
+                // throw new Error("area name needed");
+                alert("Area Name Needed");
                 throw new Error("area name needed");
             }
 
@@ -182,21 +190,20 @@
             boundingBoxCoordinatesQueryParams += `&west=${boundingBoxCoordinates.west}`;
 
             var queryParams = "&beds=" + beds + "&bathsFull=" + bathsFull + "&bathsHalf=" + bathsHalf;
-            queryParams = queryParams + "&propertyAddressId=" + propertyAddressId + "&averageValue=" + averageValue;
-            queryParams = queryParams + "&averageRent=" + averageRent;
 
             var url = '/api/customregion/getArea/';
             url += areaId;
             url += '/?';
+
+            if (getByBoundingBox) {
             url += boundingBoxCoordinatesQueryParams;
+            }
+
             url += queryParams;
             console.log(url);
 
-            var timer = new Date();
             getAjax(url, function (res) {
-                var timer2 = new Date();
-                console.log("time 1: ", timer.getHours(), timer.getMinutes(), timer.getSeconds());
-                console.log("time 2: ", timer2.getHours(), timer2.getMinutes(), timer2.getSeconds());
+                resetPolygons(false);
 
                 res = JSON.parse(res);
 
@@ -223,7 +230,8 @@
                     });
                 }
 
-                $("#DynamoStats").text("Total Dynamo Query Time:" + res.totalQueryExecutionTime);
+                $("#queryCount").text("Total Dynamo Query Time:" + res.totalQueryExecutionTime);
+                $("#propertyCount").text("Total Properties Returned:" + res.propertyCount);
 
                 // rectangle.setOptions({draggable: false});
 
@@ -237,24 +245,22 @@
     </script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing&callback=initMap"
             async defer></script>
-    <br><br>
+    
     <!-- <input type="button" value="find regions" onclick="window.location.href='drawRegion.html'"/>
     <br><br> -->
-    <button onclick="resetPolygons()">Reset regions</button>
-    <span id="DynamoStats" style="color:red;font-size:large;background-color:aqua"></span> <br />
-    <br><br>
+    <button onclick="resetPolygons(true)">Reset regions</button>
+    <span id="queryCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+    <span id="propertyCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+    
     <!-- <button onclick="panMap()">Pan Map</button> -->
     <!-- City name: <input style="margin-left: 10px;" type="text" name="cityName" id="city"><br> -->
 
-    <br><br>
     <table>
         <tr>
             <td>Area</td>
             <td>
                 <select class="form-control select2" id="areaId"></select>
             </td>
-        </tr>
-        <tr>
             <td>
                 Beds:
             </td>
@@ -269,8 +275,6 @@
                     <option value="6">6</option>
                 </select>
             </td>
-        </tr>
-        <tr>
             <td>
                 Baths Full:
             </td>
@@ -285,9 +289,6 @@
                     <option value="6">6</option>
                 </select>
             </td>
-        </tr>
-
-        <tr>
             <td>
                 Baths Half:
             </td>
@@ -302,47 +303,27 @@
                     <option value="6">6</option>
                 </select>
             </td>
-        </tr>
-        <tr>
-            <td>
-                Property Address:
-            </td>
-            <td>
-                <input style="margin-left: 10px;" type="text" name="propertyAddressId" id="propertyAddressId">
-            </td>
-        </tr>
-        <tr>
-            <td>
-                Average Value:
-            </td>
-            <td>
-                <input style="margin-left: 10px;" type="number" name="averageValue" id="averageValue">
-            </td>
-        </tr>
-        <tr>
-            <td>
-                Average Rent:
-            </td>
-            <td>
-                <input style="margin-left: 10px;" type="number" name="averageRent" id="averageRent">
-            </td>
-        </tr>
-        <tr>
             <td colspan="2">
                 <button onclick="getPropertiesByFilters(
     document.getElementById('areaId').value,
     document.getElementById('beds').value,
     document.getElementById('bathsFull').value,
     document.getElementById('bathsHalf').value,
-    document.getElementById('propertyAddressId').value,
-    document.getElementById('averageValue').value,
-    document.getElementById('averageRent').value
+    false
     )">
-                    Get Properties by Filters
+                    Get Properties
                 </button>
+                <button onclick="getPropertiesByFilters(
+                    document.getElementById('areaId').value,
+                    document.getElementById('beds').value,
+                    document.getElementById('bathsFull').value,
+                    document.getElementById('bathsHalf').value,
+                    true
+                    )">
+                    Get Properties by Bounding box
+                                </button>
             </td>
         </tr>
-        <br>
     </table>
 </body>
 </html>
