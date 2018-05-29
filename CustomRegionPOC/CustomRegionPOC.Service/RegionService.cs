@@ -110,7 +110,10 @@ namespace CustomRegionPOC.Service
         {
             List<Listing> listings = new List<Listing>();
 
+
+            DateTime startDateCoordinate = DateTime.Now;
             List<Tile> tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
+            DateTime endDateCoordinate = DateTime.Now;
 
             DateTime startDate = DateTime.Now;
             List<Property> listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
@@ -141,7 +144,8 @@ namespace CustomRegionPOC.Service
             {
                 PropertyCount = listings.Count(),
                 Properties = customProperties,
-                TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
+                TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds,
+                TotalQueryExecutionTimeLambda = (endDateCoordinate - startDateCoordinate).TotalMilliseconds
             };
         }
 
