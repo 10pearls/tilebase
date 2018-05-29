@@ -244,6 +244,24 @@
             $("#propertyCount").text("");
         }
 
+
+    function getCustomRegionProperties(coordinates, areaName, beds, bathsFull, bathsHalf) {
+        if (!coordinates.length) {
+            alert("Please draw a region");
+            throw new Error("area name needed");
+        }
+
+            var obj = {
+                name: areaName,
+                points: coordinates,
+                beds: beds,
+                bathsFull: bathsFull,
+                bathsHalf: bathsHalf
+            }
+
+
+    }    
+
 </script>
 <button onclick="resetRegions()">Reset regions</button>
 <span id="queryCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
@@ -254,7 +272,7 @@
             Name:
         </td>
         <td>
-                <input type="text" name="areaName">
+                <input type="text" name="areaName", id="areaName">
         </td>
         <td>
             Beds:
@@ -299,14 +317,14 @@
             </select>
         </td>
         <td colspan="2">
-            <button onclick="getPropertiesByFilters(
-            document.getElementById('areaId').value,
+            <button onclick="getCustomRegionProperties(
+            coordinates,
+            document.getElementById('areaName').value,
             document.getElementById('beds').value,
             document.getElementById('bathsFull').value,
-            document.getElementById('bathsHalf').value,
-            false
+            document.getElementById('bathsHalf').value
             )">
-                Get Properties
+                Get Custom Region Properties
             </button>
         </td>
     </tr>
