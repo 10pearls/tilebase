@@ -18,49 +18,49 @@
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 </head>
 <body>
-<div id="map"></div>
-<!--<script src="https://maps.googleapis.com/maps/api/js"></script>-->
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing"></script>
-<script>
-    var coordinates = [];
-    var markers = [];
-    var map;
-    var drawingManager;
-    var tilelayer;
-    var rectangle;
-    var infoWindow;
+    <div id="map"></div>
+    <!--<script src="https://maps.googleapis.com/maps/api/js"></script>-->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing"></script>
+    <script>
+        var coordinates = [];
+        var markers = [];
+        var map;
+        var drawingManager;
+        var tilelayer;
+        var rectangle;
+        var infoWindow;
 
-            var initialBounds = {
-          north: 38.99209160356612,
-          south: 38.976092526039,
-          east: -77.08265178826906,
-          west: -77.10591915277098
+        var initialBounds = {
+            north: 38.99209160356612,
+            south: 38.976092526039,
+            east: -77.08265178826906,
+            west: -77.10591915277098
         };
 
         var boundingBoxCoordinates = $.extend({}, initialBounds);
 
         function showNewRect(event) {
-        var ne = rectangle.getBounds().getNorthEast();
-        var sw = rectangle.getBounds().getSouthWest();
+            var ne = rectangle.getBounds().getNorthEast();
+            var sw = rectangle.getBounds().getSouthWest();
 
-        var contentString = '<b>Rectangle moved.</b><br>' +
-            'New north-east corner: ' + ne.lat() + ', ' + ne.lng() + '<br>' +
-            'New south-west corner: ' + sw.lat() + ', ' + sw.lng();
+            var contentString = '<b>Rectangle moved.</b><br>' +
+                'New north-east corner: ' + ne.lat() + ', ' + ne.lng() + '<br>' +
+                'New south-west corner: ' + sw.lat() + ', ' + sw.lng();
 
 
-        boundingBoxCoordinates.north = ne.lat();
-        boundingBoxCoordinates.east = ne.lng();
-        boundingBoxCoordinates.south = sw.lat();
-        boundingBoxCoordinates.west = sw.lng();
+            boundingBoxCoordinates.north = ne.lat();
+            boundingBoxCoordinates.east = ne.lng();
+            boundingBoxCoordinates.south = sw.lat();
+            boundingBoxCoordinates.west = sw.lng();
 
-        // Set the info window's content and position.
-        infoWindow.setContent(contentString);
-        infoWindow.setPosition(ne);
+            // Set the info window's content and position.
+            infoWindow.setContent(contentString);
+            infoWindow.setPosition(ne);
 
-        infoWindow.open(map);
-      }
+            infoWindow.open(map);
+        }
 
-            function postAjax(url, data, success) {
+        function postAjax(url, data, success) {
 
             var xhr = new XMLHttpRequest();
             xhr.open('POST', url);
@@ -75,9 +75,9 @@
             xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
             xhr.send(JSON.stringify(data));
             return xhr;
-            }
+        }
 
-            function getAjax(url, success) {
+        function getAjax(url, success) {
             var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
             xhr.open('GET', url);
             xhr.onreadystatechange = function () {
@@ -86,7 +86,7 @@
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             xhr.send();
             return xhr;
-            }
+        }
 
         function newMap() {
             return new google.maps.Map(document.getElementById('map'), {
@@ -96,207 +96,207 @@
         }
 
 
-    function TileToQuadKey(x, y, zoom) {
-        var quad = "";
-        for (var i = zoom; i > 0; i--) {
-            var mask = 1 << (i - 1);
-            var cell = 0;
-            if ((x & mask) != 0)
-                cell++;
-            if ((y & mask) != 0)
-                cell += 2;
-            quad += cell;
-        }
-        return quad;
-    }
-
-    tilelayer = new google.maps.ImageMapType({
-        getTileUrl: function (tile, zoom) {
-            var imageurl3 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ff000044&chld=FFFFFF|32|h|000000|b|";
-            var imageurl4 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff00&chld=FFFFFF|32|h|000000|b|";
-            var tilegoogle = " (" + tile.x + "," + tile.y + ")";
-            //var tiletms = " (" + tile.x + "," + ((1 << zoom) - tile.y - 1) + ")";
-            //var tilequadtree = " " +TileToQuadKey( tile.x, tile.y, zoom);
-
-            if (tile.x < 0 || tile.y < 0) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
-            if (tile.x >= (1 << zoom) || tile.y >= (1 << zoom)) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
-
-            if ((tile.x % 2 && !(tile.y % 2)) || (!(tile.x % 2) && tile.y % 2)) {
-                imageurl = imageurl3;
-            } else {
-                imageurl = imageurl4;
+        function TileToQuadKey(x, y, zoom) {
+            var quad = "";
+            for (var i = zoom; i > 0; i--) {
+                var mask = 1 << (i - 1);
+                var cell = 0;
+                if ((x & mask) != 0)
+                    cell++;
+                if ((y & mask) != 0)
+                    cell += 2;
+                quad += cell;
             }
-            return imageurl + "||||Google: " + tilegoogle + "|Zoom " + zoom + "||||||____________________________";
-        },
-        tileSize: new google.maps.Size(256, 256),
-        opacity: 0.3,
-    });
+            return quad;
+        }
 
-    function onOverlayComplete(e) {
-        console.log(e);
+        tilelayer = new google.maps.ImageMapType({
+            getTileUrl: function (tile, zoom) {
+                var imageurl3 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ff000044&chld=FFFFFF|32|h|000000|b|";
+                var imageurl4 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff00&chld=FFFFFF|32|h|000000|b|";
+                var tilegoogle = " (" + tile.x + "," + tile.y + ")";
+                //var tiletms = " (" + tile.x + "," + ((1 << zoom) - tile.y - 1) + ")";
+                //var tilequadtree = " " +TileToQuadKey( tile.x, tile.y, zoom);
+
+                if (tile.x < 0 || tile.y < 0) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
+                if (tile.x >= (1 << zoom) || tile.y >= (1 << zoom)) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
+
+                if ((tile.x % 2 && !(tile.y % 2)) || (!(tile.x % 2) && tile.y % 2)) {
+                    imageurl = imageurl3;
+                } else {
+                    imageurl = imageurl4;
+                }
+                return imageurl + "||||Google: " + tilegoogle + "|Zoom " + zoom + "||||||____________________________";
+            },
+            tileSize: new google.maps.Size(256, 256),
+            opacity: 0.3,
+        });
+
+        function onOverlayComplete(e) {
+            console.log(e);
 
             var locations = e.overlay.getPath().getArray();
 
             for (var i = 0; i < locations.length; i++) {
                 var lat = locations[i].lat();
                 var lng = locations[i].lng();
-                coordinates.push({lat: lat, lng: lng});
+                coordinates.push({ lat: lat, lng: lng });
             }
 
-    }
+        }
 
-    function initMap() {
-        map = new google.maps.Map(document.getElementById('map'), {
-            center: { lat: 38.984653, lng: -77.094711 },
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 38.984653, lng: -77.094711 },
                 zoom: 15
-        });
+            });
 
-        drawingManager = new google.maps.drawing.DrawingManager({
-            drawingMode: google.maps.drawing.OverlayType.POLYGON,
-            drawingControl: true,
-            drawingControlOptions: {
-                position: google.maps.ControlPosition.TOP_CENTER,
-                drawingModes: ['polygon']
-            },
-            markerOptions: {icon: 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png'},
-            circleOptions: {
-                fillColor: '#FF0000',
-                fillOpacity: 1,
-                strokeWeight: 5,
-                clickable: false,
+            drawingManager = new google.maps.drawing.DrawingManager({
+                drawingMode: google.maps.drawing.OverlayType.POLYGON,
+                drawingControl: true,
+                drawingControlOptions: {
+                    position: google.maps.ControlPosition.TOP_CENTER,
+                    drawingModes: ['polygon']
+                },
+                markerOptions: { icon: 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png' },
+                circleOptions: {
+                    fillColor: '#FF0000',
+                    fillOpacity: 1,
+                    strokeWeight: 5,
+                    clickable: false,
+                    editable: true,
+                    zIndex: 1
+                }
+            });
+
+            google.maps.event.addListener(drawingManager, 'overlaycomplete', onOverlayComplete);
+
+            // Define the rectangle and set its editable property to true.
+            rectangle = new google.maps.Rectangle({
+                bounds: initialBounds,
                 editable: true,
-                zIndex: 1
-            }
-        });
-
-        google.maps.event.addListener(drawingManager, 'overlaycomplete', onOverlayComplete);
-
-        // Define the rectangle and set its editable property to true.
-        rectangle = new google.maps.Rectangle({
-          bounds: initialBounds,
-          editable: true,
-          draggable: true
-        });
+                draggable: true
+            });
 
 
 
-        // google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
-        //     //console.log(e);
-        //     var locations = e.overlay.getPath().getArray();
+            // google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
+            //     //console.log(e);
+            //     var locations = e.overlay.getPath().getArray();
 
-        //     for (var i = 0; i < locations.length; i++) {
-        //         var lat = locations[i].lat();
-        //         var lng = locations[i].lng();
-        //         coordinates.push({lat: lat, lng: lng});
-        //     }
+            //     for (var i = 0; i < locations.length; i++) {
+            //         var lat = locations[i].lat();
+            //         var lng = locations[i].lng();
+            //         coordinates.push({lat: lat, lng: lng});
+            //     }
 
-        //     var name = prompt("Please enter a name for a region to save it", "Default Region");
+            //     var name = prompt("Please enter a name for a region to save it", "Default Region");
 
-        //     var obj = {
-        //         name: name,
-        //         points: coordinates
-        //     }
+            //     var obj = {
+            //         name: name,
+            //         points: coordinates
+            //     }
 
-        //     if (name != null) {
-        //         obj.name = name;
-        //         console.log(obj);
-                
-        //         postAjax('/api/customregion/', obj, function (data) {
-        //             var resp = JSON.parse(data);
+            //     if (name != null) {
+            //         obj.name = name;
+            //         console.log(obj);
 
-        //             //poly.setMap(map);
-        //             coordinates = [];
-        //             for (var i = 0; i < resp.length; i++) {
+            //         postAjax('/api/customregion/', obj, function (data) {
+            //             var resp = JSON.parse(data);
 
-        //                 var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
-        //                 var marker = new google.maps.Marker({
-        //                     position: markerLatLng,
-        //                     map: map,
-        //                     title: resp[i].name
-        //                 });
-        //                 markers.push(marker);
+            //             //poly.setMap(map);
+            //             coordinates = [];
+            //             for (var i = 0; i < resp.length; i++) {
 
-        //                 function markerOnClickEvent(marker) {
+            //                 var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+            //                 var marker = new google.maps.Marker({
+            //                     position: markerLatLng,
+            //                     map: map,
+            //                     title: resp[i].name
+            //                 });
+            //                 markers.push(marker);
 
-        //                     var infoWindow = new google.maps.InfoWindow({
-        //                         content: marker.title
-        //                     });
-        //                     infoWindow.open(map, marker);
-        //                 }
+            //                 function markerOnClickEvent(marker) {
 
-        //                 google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
-        //             }
+            //                     var infoWindow = new google.maps.InfoWindow({
+            //                         content: marker.title
+            //                     });
+            //                     infoWindow.open(map, marker);
+            //                 }
 
-        //             //console.log(JSON.parse(data));
-        //         });
+            //                 google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+            //             }
 
-        //     }
-        //     else {
-        //         postAjax('/api/customregion/GetListings', obj, function (data) {
-        //             var resp = JSON.parse(data);
+            //             //console.log(JSON.parse(data));
+            //         });
 
-        //             //poly.setMap(map);
-        //             coordinates = [];
-        //             for (var i = 0; i < resp.length; i++) {
+            //     }
+            //     else {
+            //         postAjax('/api/customregion/GetListings', obj, function (data) {
+            //             var resp = JSON.parse(data);
 
-        //                 var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
-        //                 var marker = new google.maps.Marker({
-        //                     position: markerLatLng,
-        //                     map: map,
-        //                     title: resp[i].name
-        //                 });
-        //                 markers.push(marker);
+            //             //poly.setMap(map);
+            //             coordinates = [];
+            //             for (var i = 0; i < resp.length; i++) {
 
-        //                 function markerOnClickEvent(marker) {
+            //                 var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+            //                 var marker = new google.maps.Marker({
+            //                     position: markerLatLng,
+            //                     map: map,
+            //                     title: resp[i].name
+            //                 });
+            //                 markers.push(marker);
 
-        //                     var infoWindow = new google.maps.InfoWindow({
-        //                         content: marker.title
-        //                     });
-        //                     infoWindow.open(map, marker);
-        //                 }
+            //                 function markerOnClickEvent(marker) {
 
-        //                 google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
-        //             }
+            //                     var infoWindow = new google.maps.InfoWindow({
+            //                         content: marker.title
+            //                     });
+            //                     infoWindow.open(map, marker);
+            //                 }
 
-        //         });
-        //     }
+            //                 google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+            //             }
 
-        //     var opt = {minZoom: 10};
-        //     map.setOptions(opt);
-        // });
+            //         });
+            //     }
 
-        map = newMap();
-        map.overlayMapTypes.insertAt(0, tilelayer);
-        drawingManager.setMap(map);
-        var opt = {minZoom: 10};
-        map.setOptions(opt);
+            //     var opt = {minZoom: 10};
+            //     map.setOptions(opt);
+            // });
 
-        rectangle.setMap(map);
-
-        // Add an event listener on the rectangle.
-        rectangle.addListener('bounds_changed', showNewRect);  
-
-        infoWindow = new google.maps.InfoWindow();     
-    }
-
-    initMap();
-
-    function resetRegions(resetBoundingBox) {
             map = newMap();
             map.overlayMapTypes.insertAt(0, tilelayer);
             drawingManager.setMap(map);
-            var opt = { minZoom: 10 , disableDoubleClickZoom: false};
+            var opt = { minZoom: 10 };
+            map.setOptions(opt);
+
+            rectangle.setMap(map);
+
+            // Add an event listener on the rectangle.
+            rectangle.addListener('bounds_changed', showNewRect);
+
+            infoWindow = new google.maps.InfoWindow();
+        }
+
+        initMap();
+
+        function resetRegions(resetBoundingBox) {
+            map = newMap();
+            map.overlayMapTypes.insertAt(0, tilelayer);
+            drawingManager.setMap(map);
+            var opt = { minZoom: 10, disableDoubleClickZoom: false };
             map.setOptions(opt);
 
 
             if (resetBoundingBox) {
-            rectangle.setMap(null);
+                rectangle.setMap(null);
 
-            rectangle = new google.maps.Rectangle({
-            bounds: initialBounds,
-            editable: true,
-            draggable: true
-            });
+                rectangle = new google.maps.Rectangle({
+                    bounds: initialBounds,
+                    editable: true,
+                    draggable: true
+                });
             }
 
             rectangle.setMap(map);
@@ -308,18 +308,17 @@
             $("#propertyCount").text("");
         }
 
-    function getCustomRegionProperties(boundingBox, coordinates, areaName, beds, bathsFull, bathsHalf) {
-        if (!coordinates.length) {
-            alert("Please draw a region");
-            throw new Error("area name needed");
-        }
+        function getCustomRegionProperties(boundingBox, coordinates, areaName, beds, bathsFull, bathsHalf) {
+            if (!coordinates.length) {
+                alert("Please draw a region");
+                throw new Error("area name needed");
+            }
 
             var obj = {
                 name: areaName,
                 points: coordinates
             }
 
-            debugger;
             var boundingBoxCoordinatesQueryParams = `north=${boundingBoxCoordinates.north}`;
             boundingBoxCoordinatesQueryParams += `&east=${boundingBoxCoordinates.east}`;
             boundingBoxCoordinatesQueryParams += `&south=${boundingBoxCoordinates.south}`;
@@ -330,47 +329,48 @@
             var url = '/api/customregion/GetListings';
             url += '?';
 
-            if (getByBoundingBox) {
-            url += boundingBoxCoordinatesQueryParams;
+            if (boundingBox) {
+                url += boundingBoxCoordinatesQueryParams;
             }
 
             url += queryParams;
             console.log(url);
 
-                     postAjax(url, obj, function (data) {
-                    var resp = JSON.parse(data);
+            postAjax(url, obj, function (data) {
+                var resp = JSON.parse(data);
 
-                    //poly.setMap(map);
-                    coordinates = [];
-                    for (var i = 0; i < resp.length; i++) {
+                //poly.setMap(map);
+                coordinates = [];
+                for (var i = 0; i < resp.length; i++) {
+                    console.log(resp[i]);
 
-                        var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
-                        var marker = new google.maps.Marker({
-                            position: markerLatLng,
-                            map: map,
-                            title: resp[i].name
+                    var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+                    var marker = new google.maps.Marker({
+                        position: markerLatLng,
+                        map: map,
+                        title: "HELLO"
+                    });
+                    markers.push(marker);
+
+                    function markerOnClickEvent(marker) {
+
+                        var infoWindow = new google.maps.InfoWindow({
+                            content: marker.title
                         });
-                        markers.push(marker);
-
-                        function markerOnClickEvent(marker) {
-
-                            var infoWindow = new google.maps.InfoWindow({
-                                content: marker.title
-                            });
-                            infoWindow.open(map, marker);
-                        }
-
-                        google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+                        infoWindow.open(map, marker);
                     }
 
-                });      
-    }    
+                    google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+                }
 
-    function saveRegion(coordinates, areaName, beds, bathsFull, bathsHalf) {
-        if (!coordinates.length) {
-            alert("Please draw a region");
-            throw new Error("area name needed");
+            });
         }
+
+        function saveRegion(coordinates, areaName, beds, bathsFull, bathsHalf) {
+            if (!coordinates.length) {
+                alert("Please draw a region");
+                throw new Error("area name needed");
+            }
 
             var obj = {
                 name: areaName,
@@ -380,94 +380,94 @@
                 bathsHalf: bathsHalf
             }
 
-        postAjax('/api/customregion/', obj, function (data) {
-                    var resp = JSON.parse(data);
+            postAjax('/api/customregion/', obj, function (data) {
+                var resp = JSON.parse(data);
 
-                    //poly.setMap(map);
-                    coordinates = [];
-                    debugger;
-                    for (var i = 0; i < resp.length; i++) {
+                //poly.setMap(map);
+                coordinates = [];
+                debugger;
+                for (var i = 0; i < resp.length; i++) {
 
-                        var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
-                        var marker = new google.maps.Marker({
-                            position: markerLatLng,
-                            map: map,
-                            title: resp[i].name
+                    var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+                    var marker = new google.maps.Marker({
+                        position: markerLatLng,
+                        map: map,
+                        title: resp[i].name
+                    });
+                    markers.push(marker);
+
+                    function markerOnClickEvent(marker) {
+
+                        var infoWindow = new google.maps.InfoWindow({
+                            content: marker.title
                         });
-                        markers.push(marker);
-
-                        function markerOnClickEvent(marker) {
-
-                            var infoWindow = new google.maps.InfoWindow({
-                                content: marker.title
-                            });
-                            infoWindow.open(map, marker);
-                        }
-
-                        google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+                        infoWindow.open(map, marker);
                     }
 
-                    //console.log(JSON.parse(data));
-                });
+                    google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+                }
 
-    }
+                //console.log(JSON.parse(data));
+            });
 
-</script>
-<button onclick="resetRegions(true)">Reset regions</button>
-<span id="queryCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
-<span id="propertyCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
-<table>
-    <tr>
-        <td>
-            Name:
-        </td>
-        <td>
-                <input type="text" name="areaName", id="areaName">
-        </td>
-        <td>
-            Beds:
-        </td>
-        <td>
-            <select class="form-control select2" id="beds">
-                <option value="" selected>Select</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-            </select>
-        </td>
-        <td>
-            Baths Full:
-        </td>
-        <td>
-            <select class="form-control select2" id="bathsFull">
-                <option value="" selected>Select</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-            </select>
-        </td>
-        <td>
-            Baths Half:
-        </td>
-        <td>
-            <select class="form-control select2" id="bathsHalf">
-                <option value="" selected>Select</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-            </select>
-        </td>
-        <td colspan="2">
-            <button onclick="getCustomRegionProperties(
+        }
+
+    </script>
+    <button onclick="resetRegions(true)">Reset regions</button>
+    <span id="queryCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+    <span id="propertyCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+    <table>
+        <tr>
+            <td>
+                Name:
+            </td>
+            <td>
+                <input type="text" name="areaName" , id="areaName">
+            </td>
+            <td>
+                Beds:
+            </td>
+            <td>
+                <select class="form-control select2" id="beds">
+                    <option value="" selected>Select</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+            </td>
+            <td>
+                Baths Full:
+            </td>
+            <td>
+                <select class="form-control select2" id="bathsFull">
+                    <option value="" selected>Select</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+            </td>
+            <td>
+                Baths Half:
+            </td>
+            <td>
+                <select class="form-control select2" id="bathsHalf">
+                    <option value="" selected>Select</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+            </td>
+            <td colspan="2">
+                <button onclick="getCustomRegionProperties(
             false,
             coordinates,
             document.getElementById('areaName').value,
@@ -475,9 +475,9 @@
             document.getElementById('bathsFull').value,
             document.getElementById('bathsHalf').value
             )">
-                Get Custom Region Properties
-            </button>
-            <button onclick="getCustomRegionProperties(
+                    Get Custom Region Properties
+                </button>
+                <button onclick="getCustomRegionProperties(
                 true,
                 coordinates,
                 document.getElementById('areaName').value,
@@ -487,7 +487,7 @@
                 )">
                     Get Custom Region Properties By Bounding Box
                 </button>
-            <button onclick="saveRegion(
+                <button onclick="saveRegion(
                 coordinates,
                 document.getElementById('areaName').value,
                 document.getElementById('beds').value,
@@ -496,8 +496,8 @@
                 )">
                     Save Region
                 </button>
-        </td>
-    </tr>
-</table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

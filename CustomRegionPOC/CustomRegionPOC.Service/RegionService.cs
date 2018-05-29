@@ -30,6 +30,7 @@ namespace CustomRegionPOC.Service
 
         private AmazonDynamoDBClient dynamoDBClient;
         private string tilebaseURL;
+        private string tilebaseURLWithRasterize;
         public DynamoDBContext context;
 
         public RegionService(IConfiguration configuration)
@@ -42,6 +43,7 @@ namespace CustomRegionPOC.Service
             context = new DynamoDBContext(this.dynamoDBClient);
 
             this.tilebaseURL = configuration["AWS:Tilebase-URL"];
+            this.tilebaseURLWithRasterize = configuration["AWS:Tilebase-URL-With-Rasterize"];
         }
 
         public async Task Create(Area region)
@@ -61,8 +63,7 @@ namespace CustomRegionPOC.Service
             List<Task> tasks = new List<Task>();
             tasks.Add(Task.Factory.StartNew(() => { this.context.SaveAsync<AreaMaster>(areaMaster).Wait(); }));
 
-            List<Tuple<PointF, PointF>> tuples = GenerateTileTuples(region.Points);
-            List<Area> areas = this.transformRegion(region, this.Rasterize(tuples));
+            List<Area> areas = this.transformRegion(region, this.GetCoordinateTile(region.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true));
             SaveAreas(areas);
 
             Task.WaitAll(tasks.ToArray());
@@ -82,7 +83,7 @@ namespace CustomRegionPOC.Service
                 Y = (float)listing.Lng
             });
 
-            List<Tile> coordinates = GetCoordinateTile(points);
+            List<Tile> coordinates = GetCoordinateTile(points, false);
 
             Parallel.ForEach(coordinates, coordinate =>
             {
@@ -103,17 +104,17 @@ namespace CustomRegionPOC.Service
             });
         }
 
-        public async Task<List<Listing>> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
+        public async Task<dynamic> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
             List<Listing> listings = new List<Listing>();
 
-            List<Tuple<PointF, PointF>> tuples = GenerateTileTuples(area.Points);
-            List<Point> tiles = this.Rasterize(tuples);
+            List<Tile> tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
 
-            List<Property> listing = getRegionByProperty(tiles, north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
-            Parallel.ForEach(listing, item =>
+            List<Property> listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
+            foreach (var item in listing)
             {
-                if (this.isPointInPolygon(area.Points, item.Latitude, item.Longitude))
+                Tile currentTile = tiles.FirstOrDefault(x => GetTileStr((int)x.Row, (int)x.Column) == item.Tile);
+                if (!currentTile.IsPartialTiles || (currentTile.IsPartialTiles && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude)))
                 {
                     listings.Add(new Listing
                     {
@@ -122,9 +123,14 @@ namespace CustomRegionPOC.Service
                         Lng = item.Longitude
                     });
                 }
-            });
+            };
 
-            return listings;
+            return listings.Select(x => new
+            {
+                x.Lat,
+                x.Lng,
+                x.Name
+            });
         }
 
         public async Task<List<AreaMaster>> GetArea()
@@ -291,22 +297,6 @@ namespace CustomRegionPOC.Service
             }
         }
 
-        public List<Tuple<PointF, PointF>> GenerateTileTuples(List<LocationPoint> points)
-        {
-            List<Tuple<PointF, PointF>> tuple = new List<Tuple<PointF, PointF>>();
-
-            List<Tile> actualTiles = this.GetCoordinateTile(points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList());
-
-            for (int i = 1; i < actualTiles.Count(); i++)
-            {
-                tuple.Add(new Tuple<PointF, PointF>(new PointF(actualTiles[i - 1].Row, actualTiles[i - 1].Column), new PointF(actualTiles[i].Row, actualTiles[i].Column)));
-            }
-
-            tuple.Add(new Tuple<PointF, PointF>(new PointF(actualTiles[actualTiles.Count() - 1].Row, actualTiles[actualTiles.Count() - 1].Column), new PointF(actualTiles[0].Row, actualTiles[0].Column)));
-
-            return tuple;
-        }
-
         public void SaveAreas(List<Area> areas)
         {
             Parallel.ForEach(areas.ChunkBy<Area>(200), (item, state, index) =>
@@ -331,7 +321,7 @@ namespace CustomRegionPOC.Service
             });
         }
 
-        public List<Tile> GetCoordinateTile(List<PointF> points, int zoomlevel = 14)
+        public List<Tile> GetCoordinateTile(List<PointF> points, bool withRasterize, int zoomlevel = 14)
         {
             List<Tile> tilesCoordinates = new List<Tile>();
 
@@ -352,9 +342,14 @@ namespace CustomRegionPOC.Service
 
                 Parallel.ForEach(tilesCoordinates.ChunkBy(200), tilesCoordinate =>
                 {
-                    WebRequest request = WebRequest.Create(tilebaseURL);
-                    request.Method = "POST";
                     string postData = JSONHelper.GetString(tilesCoordinate);
+                    if (withRasterize)
+                    {
+                        postData = @"{""zoom"": " + zoomlevel + @", ""points"": " + postData + "}";
+                    }
+
+                    WebRequest request = WebRequest.Create(withRasterize ? tilebaseURLWithRasterize : tilebaseURL);
+                    request.Method = "POST";
                     byte[] byteArray = Encoding.UTF8.GetBytes(postData);
                     request.ContentType = "application/x-www-form-urlencoded";
                     request.ContentLength = byteArray.Length;
@@ -384,40 +379,6 @@ namespace CustomRegionPOC.Service
             }
         }
 
-        public List<Point> Rasterize(List<Tuple<PointF, PointF>> lines)
-        {
-            var list = new List<Point>();
-            var innerList = new List<Point>();
-            foreach (var line in lines)
-            {
-                var points = getPointsOnLine(line.Item1, line.Item2);
-                foreach (var point in points)
-                {
-                    list.Add(point);
-                }
-            };
-
-            var topY = list.Max(x => x.Y);
-            var bottomY = list.Min(x => x.Y);
-            for (int y = bottomY + 1; y < topY; y++)
-            {
-                var edgeCoords = list.Where(i => i.Y == y).ToList();
-                edgeCoords = edgeCoords.OrderBy(x => x.X).ToList();
-                for (int i = 1; i < edgeCoords.Count(); i = i + 2)
-                {
-                    for (int x = edgeCoords.ElementAt(i - 1).X + 1; x < edgeCoords.ElementAt(i).X; x++)
-                    {
-                        innerList.Add(new Point(x, y));
-                    }
-
-                }
-            }
-            list.AddRange(innerList);
-            list = list.Distinct().ToList();
-
-            return list;
-        }
-
         public string GetTileStr(int row, int column)
         {
             return "(" + row + "," + column + ")";
@@ -439,7 +400,7 @@ namespace CustomRegionPOC.Service
             }
         }
 
-        private List<Area> transformRegion(Area area, List<Point> tiles)
+        private List<Area> transformRegion(Area area, List<Tile> tiles)
         {
             List<Area> areas = new List<Area>();
 
@@ -449,18 +410,19 @@ namespace CustomRegionPOC.Service
                 locationPoints.Add(point.Lat + " " + point.Lng);
             }
 
-            foreach (Point tile in tiles)
+            foreach (Tile tile in tiles)
             {
                 Area tempObj = new Area();
 
                 tempObj = (Area)area.Clone();
 
-                tempObj.Tile = GetTileStr(tile.X, tile.Y);
+                tempObj.Tile = GetTileStr((int)tile.Row, (int)tile.Column);
                 tempObj.Type = RecordType.Area;
                 tempObj.OriginalPolygon = "((" + string.Join(", ", locationPoints) + "))";
                 tempObj.Tiles = null;
                 tempObj.OriginalPolygon = "";
                 tempObj.Points = null;
+                tempObj.IsPartialTiles = tile.IsPartialTiles;
 
                 areas.Add(tempObj);
             }
@@ -477,7 +439,7 @@ namespace CustomRegionPOC.Service
                 Y = (float)lng
             });
 
-            List<Tile> coordinates = GetCoordinateTile(points);
+            List<Tile> coordinates = GetCoordinateTile(points, false);
 
             return await getRegionByArea(coordinates.Select(x => new Point((int)x.Row, (int)x.Column)).ToList());
         }
@@ -570,7 +532,7 @@ namespace CustomRegionPOC.Service
                         ReturnConsumedCapacity = "TOTAL",
                         KeyConditions = keyConditions,
                         QueryFilter = queryFilter,
-                        AttributesToGet = new List<string> { "Latitude", "Longitude" },
+                        AttributesToGet = new List<string> { "Latitude", "Longitude", "Tile", "PropertyAddressName" },
                         Select = "SPECIFIC_ATTRIBUTES"
 
                     };

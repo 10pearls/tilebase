@@ -106,13 +106,12 @@ namespace CustomRegionPOC.Console
             {
                 obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lng = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lat = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
 
-                List<Tuple<PointF, PointF>> tuples = regionServiceInstance.GenerateTileTuples(obj.Points);
-                List<LocationPoint> rasterizePoints = regionServiceInstance.Rasterize(tuples).Select(x => new LocationPoint() { Lat = x.X, Lng = x.Y }).ToList();
+                List<Tile> rasterizePoints = regionServiceInstance.GetCoordinateTile(obj.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
 
                 foreach (var point in rasterizePoints)
                 {
                     Area tempObj = (Area)obj.Clone();
-                    tempObj.Tile = regionServiceInstance.GetTileStr((int)point.Lat, (int)point.Lng);
+                    tempObj.Tile = regionServiceInstance.GetTileStr((int)point.Row, (int)point.Column);
                     tempObj.Type = RecordType.Area;
                     tempObj.OriginalPolygon = "";
                     tempObj.Points = null;
@@ -311,7 +310,7 @@ namespace CustomRegionPOC.Console
                                     };
 
             List<PointF> points = propertyMigration.Select(x => new PointF((float)Convert.ToDecimal(x.Latitude), (float)Convert.ToDecimal(x.Longitude))).ToList();
-            List<Tile> tiles = regionServiceInstance.GetCoordinateTile(points);
+            List<Tile> tiles = regionServiceInstance.GetCoordinateTile(points, false);
 
             Projection projection = new Projection() { ProjectionType = "INCLUDE" };
 

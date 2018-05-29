@@ -27,7 +27,7 @@ namespace CustomRegionPOC.API.Controllers
         }
 
         [HttpPost]
-        public async Task<List<Listing>> Post([FromBody]Area area)
+        public async Task<dynamic> Post([FromBody]Area area)
         {
             List<Listing> listings = new List<Listing>();
             List<Task> tasks = new List<Task>();
@@ -57,7 +57,7 @@ namespace CustomRegionPOC.API.Controllers
 
         [HttpPost]
         [Route("GetListings")]
-        public async Task<List<Listing>> GetListings([FromBody]Area area)
+        public async Task<dynamic> GetListings([FromBody]Area area)
         {
             string north = Request.Query["north"];
             string east = Request.Query["east"];

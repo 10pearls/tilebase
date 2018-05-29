@@ -64,6 +64,8 @@ namespace CustomRegionPOC.Common.Model
 
         public RecordType Type { get; set; }
 
+        public bool IsPartialTiles { get; set; }
+
         public List<LocationPoint> Points { get; set; }
 
         public List<Tile> Tiles { get; set; }
