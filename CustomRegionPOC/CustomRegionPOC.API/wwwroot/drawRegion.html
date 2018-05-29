@@ -23,6 +23,38 @@
 <script>
     var coordinates = [];
     var markers = [];
+    var map;
+    var drawingManager;
+    var tilelayer;
+
+            function postAjax(url, data, success) {
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState > 3 && xhr.status == 200) {
+                    success(xhr.responseText);
+                }
+            };
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+            //xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xhr.send(JSON.stringify(data));
+            return xhr;
+            }
+
+            function getAjax(url, success) {
+            var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+            xhr.open('GET', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
+            };
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send();
+            return xhr;
+            }
+
 
     function TileToQuadKey(x, y, zoom) {
         var quad = "";
@@ -38,7 +70,7 @@
         return quad;
     }
 
-    var tilelayer = new google.maps.ImageMapType({
+    tilelayer = new google.maps.ImageMapType({
         getTileUrl: function (tile, zoom) {
             var imageurl3 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ff000044&chld=FFFFFF|32|h|000000|b|";
             var imageurl4 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff00&chld=FFFFFF|32|h|000000|b|";
@@ -61,20 +93,20 @@
     });
 
     function initMap() {
-        var map = new google.maps.Map(document.getElementById('map'), {
-            center: {lat: 39.48074006114467, lng: -101.43078939104066},
-            zoom: 10
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: 38.984653, lng: -77.094711 },
+                zoom: 15
         });
 
         function newMap() {
             return new google.maps.Map(document.getElementById('map'), {
-                center: {lat: 39.48074006114467, lng: -101.43078939104066},
-                zoom: 10
+                center: { lat: 38.984653, lng: -77.094711 },
+                zoom: 15
             });
 
         }
 
-        var drawingManager = new google.maps.drawing.DrawingManager({
+        drawingManager = new google.maps.drawing.DrawingManager({
             drawingMode: google.maps.drawing.OverlayType.POLYGON,
             drawingControl: true,
             drawingControlOptions: {
@@ -91,35 +123,6 @@
                 zIndex: 1
             }
         });
-
-
-        function postAjax(url, data, success) {
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', url);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState > 3 && xhr.status == 200) {
-                    success(xhr.responseText);
-                }
-            };
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-            //xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-            xhr.send(JSON.stringify(data));
-            return xhr;
-        }
-
-        function getAjax(url, success) {
-            var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
-            xhr.open('GET', url);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
-            };
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.send();
-            return xhr;
-        }
 
 
         google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
@@ -200,31 +203,91 @@
                         google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
                     }
 
-                    //console.log(JSON.parse(data));
                 });
             }
-           // coordinates = []
-            //map = newMap();
-            //map.overlayMapTypes.insertAt(0, tilelayer);
-            //drawingManager.setMap(map);
 
-            var opt = {minZoom: 8};
+            var opt = {minZoom: 10};
             map.setOptions(opt);
         });
 
         map = newMap();
         map.overlayMapTypes.insertAt(0, tilelayer);
         drawingManager.setMap(map);
-        var opt = {minZoom: 8};
+        var opt = {minZoom: 10};
         map.setOptions(opt);
     }
 
     initMap();
 
-</script>
+    function resetPolygons() {
+            map = newMap();
+            map.overlayMapTypes.insertAt(0, tilelayer);
+            var opt = { minZoom: 10 , disableDoubleClickZoom: false};
+            map.setOptions(opt);
+            $("#DynamoStats").text("");
+            $("#propertyCount").text("");
+        }
 
-<br><br>
-<input type="button" value="find regions" onclick="window.location.href='getPropertyRegions.html'"/>
-<br><br>
+</script>
+<button onclick="resetPolygons(true)">Reset regions</button>
+<span id="queryCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+<span id="propertyCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+<table>
+    <tr>
+        <td>
+            Beds:
+        </td>
+        <td>
+            <select class="form-control select2" id="beds">
+                <option value="" selected>Select</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+            </select>
+        </td>
+        <td>
+            Baths Full:
+        </td>
+        <td>
+            <select class="form-control select2" id="bathsFull">
+                <option value="" selected>Select</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+            </select>
+        </td>
+        <td>
+            Baths Half:
+        </td>
+        <td>
+            <select class="form-control select2" id="bathsHalf">
+                <option value="" selected>Select</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+            </select>
+        </td>
+        <td colspan="2">
+            <button onclick="getPropertiesByFilters(
+            document.getElementById('areaId').value,
+            document.getElementById('beds').value,
+            document.getElementById('bathsFull').value,
+            document.getElementById('bathsHalf').value,
+            false
+            )">
+                Get Properties
+            </button>
+        </td>
+    </tr>
+</table>
 </body>
 </html>
