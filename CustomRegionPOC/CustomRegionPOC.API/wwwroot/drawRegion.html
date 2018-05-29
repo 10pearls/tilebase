@@ -15,6 +15,7 @@
             padding: 0;
         }
     </style>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 </head>
 <body>
 <div id="map"></div>
@@ -23,6 +24,45 @@
 <script>
     var coordinates = [];
     var markers = [];
+    var map;
+    var drawingManager;
+    var tilelayer;
+
+            function postAjax(url, data, success) {
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState > 3 && xhr.status == 200) {
+                    success(xhr.responseText);
+                }
+            };
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+            //xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xhr.send(JSON.stringify(data));
+            return xhr;
+            }
+
+            function getAjax(url, success) {
+            var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+            xhr.open('GET', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
+            };
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send();
+            return xhr;
+            }
+
+        function newMap() {
+            return new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 38.984653, lng: -77.094711 },
+                zoom: 15
+            });
+        }
+
 
     function TileToQuadKey(x, y, zoom) {
         var quad = "";
@@ -38,7 +78,7 @@
         return quad;
     }
 
-    var tilelayer = new google.maps.ImageMapType({
+    tilelayer = new google.maps.ImageMapType({
         getTileUrl: function (tile, zoom) {
             var imageurl3 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ff000044&chld=FFFFFF|32|h|000000|b|";
             var imageurl4 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff00&chld=FFFFFF|32|h|000000|b|";
@@ -60,21 +100,26 @@
         opacity: 0.3,
     });
 
+    function onOverlayComplete(e) {
+        console.log(e);
+
+            var locations = e.overlay.getPath().getArray();
+
+            for (var i = 0; i < locations.length; i++) {
+                var lat = locations[i].lat();
+                var lng = locations[i].lng();
+                coordinates.push({lat: lat, lng: lng});
+            }
+
+    }
+
     function initMap() {
-        var map = new google.maps.Map(document.getElementById('map'), {
-            center: {lat: 39.48074006114467, lng: -101.43078939104066},
-            zoom: 10
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: 38.984653, lng: -77.094711 },
+                zoom: 15
         });
 
-        function newMap() {
-            return new google.maps.Map(document.getElementById('map'), {
-                center: {lat: 39.48074006114467, lng: -101.43078939104066},
-                zoom: 10
-            });
-
-        }
-
-        var drawingManager = new google.maps.drawing.DrawingManager({
+        drawingManager = new google.maps.drawing.DrawingManager({
             drawingMode: google.maps.drawing.OverlayType.POLYGON,
             drawingControl: true,
             drawingControlOptions: {
@@ -92,139 +137,197 @@
             }
         });
 
-
-        function postAjax(url, data, success) {
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', url);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState > 3 && xhr.status == 200) {
-                    success(xhr.responseText);
-                }
-            };
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-            //xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-            xhr.send(JSON.stringify(data));
-            return xhr;
-        }
-
-        function getAjax(url, success) {
-            var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
-            xhr.open('GET', url);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
-            };
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.send();
-            return xhr;
-        }
+        google.maps.event.addListener(drawingManager, 'overlaycomplete', onOverlayComplete);
 
 
-        google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
-            //console.log(e);
-            var locations = e.overlay.getPath().getArray();
+        // google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
+        //     //console.log(e);
+        //     var locations = e.overlay.getPath().getArray();
 
-            for (var i = 0; i < locations.length; i++) {
-                var lat = locations[i].lat();
-                var lng = locations[i].lng();
-                coordinates.push({lat: lat, lng: lng});
-            }
+        //     for (var i = 0; i < locations.length; i++) {
+        //         var lat = locations[i].lat();
+        //         var lng = locations[i].lng();
+        //         coordinates.push({lat: lat, lng: lng});
+        //     }
 
-            var name = prompt("Please enter a name for a region to save it", "Default Region");
+        //     var name = prompt("Please enter a name for a region to save it", "Default Region");
 
-            var obj = {
-                name: name,
-                points: coordinates
-            }
+        //     var obj = {
+        //         name: name,
+        //         points: coordinates
+        //     }
 
-            if (name != null) {
-                obj.name = name;
-                console.log(obj);
+        //     if (name != null) {
+        //         obj.name = name;
+        //         console.log(obj);
                 
-                postAjax('/api/customregion/', obj, function (data) {
-                    var resp = JSON.parse(data);
+        //         postAjax('/api/customregion/', obj, function (data) {
+        //             var resp = JSON.parse(data);
 
-                    //poly.setMap(map);
-                    coordinates = [];
-                    for (var i = 0; i < resp.length; i++) {
+        //             //poly.setMap(map);
+        //             coordinates = [];
+        //             for (var i = 0; i < resp.length; i++) {
 
-                        var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
-                        var marker = new google.maps.Marker({
-                            position: markerLatLng,
-                            map: map,
-                            title: resp[i].name
-                        });
-                        markers.push(marker);
+        //                 var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+        //                 var marker = new google.maps.Marker({
+        //                     position: markerLatLng,
+        //                     map: map,
+        //                     title: resp[i].name
+        //                 });
+        //                 markers.push(marker);
 
-                        function markerOnClickEvent(marker) {
+        //                 function markerOnClickEvent(marker) {
 
-                            var infoWindow = new google.maps.InfoWindow({
-                                content: marker.title
-                            });
-                            infoWindow.open(map, marker);
-                        }
+        //                     var infoWindow = new google.maps.InfoWindow({
+        //                         content: marker.title
+        //                     });
+        //                     infoWindow.open(map, marker);
+        //                 }
 
-                        google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
-                    }
+        //                 google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+        //             }
 
-                    //console.log(JSON.parse(data));
-                });
+        //             //console.log(JSON.parse(data));
+        //         });
 
-            }
-            else {
-                postAjax('/api/customregion/GetListings', obj, function (data) {
-                    var resp = JSON.parse(data);
+        //     }
+        //     else {
+        //         postAjax('/api/customregion/GetListings', obj, function (data) {
+        //             var resp = JSON.parse(data);
 
-                    //poly.setMap(map);
-                    coordinates = [];
-                    for (var i = 0; i < resp.length; i++) {
+        //             //poly.setMap(map);
+        //             coordinates = [];
+        //             for (var i = 0; i < resp.length; i++) {
 
-                        var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
-                        var marker = new google.maps.Marker({
-                            position: markerLatLng,
-                            map: map,
-                            title: resp[i].name
-                        });
-                        markers.push(marker);
+        //                 var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+        //                 var marker = new google.maps.Marker({
+        //                     position: markerLatLng,
+        //                     map: map,
+        //                     title: resp[i].name
+        //                 });
+        //                 markers.push(marker);
 
-                        function markerOnClickEvent(marker) {
+        //                 function markerOnClickEvent(marker) {
 
-                            var infoWindow = new google.maps.InfoWindow({
-                                content: marker.title
-                            });
-                            infoWindow.open(map, marker);
-                        }
+        //                     var infoWindow = new google.maps.InfoWindow({
+        //                         content: marker.title
+        //                     });
+        //                     infoWindow.open(map, marker);
+        //                 }
 
-                        google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
-                    }
+        //                 google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+        //             }
 
-                    //console.log(JSON.parse(data));
-                });
-            }
-           // coordinates = []
-            //map = newMap();
-            //map.overlayMapTypes.insertAt(0, tilelayer);
-            //drawingManager.setMap(map);
+        //         });
+        //     }
 
-            var opt = {minZoom: 8};
-            map.setOptions(opt);
-        });
+        //     var opt = {minZoom: 10};
+        //     map.setOptions(opt);
+        // });
 
         map = newMap();
         map.overlayMapTypes.insertAt(0, tilelayer);
         drawingManager.setMap(map);
-        var opt = {minZoom: 8};
+        var opt = {minZoom: 10};
         map.setOptions(opt);
     }
 
     initMap();
 
-</script>
+    function resetRegions() {
+            map = newMap();
+            map.overlayMapTypes.insertAt(0, tilelayer);
+            drawingManager.setMap(map);
+            var opt = { minZoom: 10 , disableDoubleClickZoom: false};
+            map.setOptions(opt);
+            $("#DynamoStats").text("");
+            $("#propertyCount").text("");
+        }
 
-<br><br>
-<input type="button" value="find regions" onclick="window.location.href='getPropertyRegions.html'"/>
-<br><br>
+
+    function getCustomRegionProperties(coordinates, areaName, beds, bathsFull, bathsHalf) {
+        if (!coordinates.length) {
+            alert("Please draw a region");
+            throw new Error("area name needed");
+        }
+
+            var obj = {
+                name: areaName,
+                points: coordinates,
+                beds: beds,
+                bathsFull: bathsFull,
+                bathsHalf: bathsHalf
+            }
+
+
+    }    
+
+</script>
+<button onclick="resetRegions()">Reset regions</button>
+<span id="queryCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+<span id="propertyCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+<table>
+    <tr>
+        <td>
+            Name:
+        </td>
+        <td>
+                <input type="text" name="areaName", id="areaName">
+        </td>
+        <td>
+            Beds:
+        </td>
+        <td>
+            <select class="form-control select2" id="beds">
+                <option value="" selected>Select</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+            </select>
+        </td>
+        <td>
+            Baths Full:
+        </td>
+        <td>
+            <select class="form-control select2" id="bathsFull">
+                <option value="" selected>Select</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+            </select>
+        </td>
+        <td>
+            Baths Half:
+        </td>
+        <td>
+            <select class="form-control select2" id="bathsHalf">
+                <option value="" selected>Select</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+            </select>
+        </td>
+        <td colspan="2">
+            <button onclick="getCustomRegionProperties(
+            coordinates,
+            document.getElementById('areaName').value,
+            document.getElementById('beds').value,
+            document.getElementById('bathsFull').value,
+            document.getElementById('bathsHalf').value
+            )">
+                Get Custom Region Properties
+            </button>
+        </td>
+    </tr>
+</table>
 </body>
 </html>
