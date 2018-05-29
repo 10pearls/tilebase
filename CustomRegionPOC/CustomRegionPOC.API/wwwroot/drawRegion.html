@@ -18,23 +18,141 @@
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 </head>
 <body>
-    <div id="map"></div>
-    <!--<script src="https://maps.googleapis.com/maps/api/js"></script>-->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing"></script>
-    <script>
-        var coordinates = [];
-        var markers = [];
-        var map;
-        var drawingManager;
-        var tilelayer;
-        var rectangle;
-        var infoWindow;
+        <div id="map"></div>
+        <!--<script src="https://maps.googleapis.com/maps/api/js"></script>-->
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing"></script>
+        
+        
+<script>
+// geohash.js
+// Geohash library for Javascript
+// (c) 2008 David Troy
+// Distributed under the MIT License
 
-        var initialBounds = {
-            north: 38.99209160356612,
-            south: 38.976092526039,
-            east: -77.08265178826906,
-            west: -77.10591915277098
+BITS = [16, 8, 4, 2, 1];
+
+BASE32 = 											   "0123456789bcdefghjkmnpqrstuvwxyz";
+NEIGHBORS = { right  : { even :  "bc01fg45238967deuvhjyznpkmstqrwx" },
+							left   : { even :  "238967debc01fg45kmstqrwxuvhjyznp" },
+							top    : { even :  "p0r21436x8zb9dcf5h7kjnmqesgutwvy" },
+							bottom : { even :  "14365h7k9dcfesgujnmqp0r2twvyx8zb" } };
+BORDERS   = { right  : { even : "bcfguvyz" },
+							left   : { even : "0145hjnp" },
+							top    : { even : "prxz" },
+							bottom : { even : "028b" } };
+
+NEIGHBORS.bottom.odd = NEIGHBORS.left.even;
+NEIGHBORS.top.odd = NEIGHBORS.right.even;
+NEIGHBORS.left.odd = NEIGHBORS.bottom.even;
+NEIGHBORS.right.odd = NEIGHBORS.top.even;
+
+BORDERS.bottom.odd = BORDERS.left.even;
+BORDERS.top.odd = BORDERS.right.even;
+BORDERS.left.odd = BORDERS.bottom.even;
+BORDERS.right.odd = BORDERS.top.even;
+
+function refine_interval(interval, cd, mask) {
+	if (cd&mask)
+		interval[0] = (interval[0] + interval[1])/2;
+  else
+		interval[1] = (interval[0] + interval[1])/2;
+}
+
+function calculateAdjacent(srcHash, dir) {
+	srcHash = srcHash.toLowerCase();
+	var lastChr = srcHash.charAt(srcHash.length-1);
+	var type = (srcHash.length % 2) ? 'odd' : 'even';
+	var base = srcHash.substring(0,srcHash.length-1);
+	if (BORDERS[dir][type].indexOf(lastChr)!=-1)
+		base = calculateAdjacent(base, dir);
+	return base + BASE32[NEIGHBORS[dir][type].indexOf(lastChr)];
+}
+
+function decodeGeoHash(geohash) {
+	var is_even = 1;
+	var lat = []; var lon = [];
+	lat[0] = -90.0;  lat[1] = 90.0;
+	lon[0] = -180.0; lon[1] = 180.0;
+	lat_err = 90.0;  lon_err = 180.0;
+	
+	for (i=0; i<geohash.length; i++) {
+		c = geohash[i];
+		cd = BASE32.indexOf(c);
+		for (j=0; j<5; j++) {
+			mask = BITS[j];
+			if (is_even) {
+				lon_err /= 2;
+				refine_interval(lon, cd, mask);
+			} else {
+				lat_err /= 2;
+				refine_interval(lat, cd, mask);
+			}
+			is_even = !is_even;
+		}
+	}
+	lat[2] = (lat[0] + lat[1])/2;
+	lon[2] = (lon[0] + lon[1])/2;
+
+	return { latitude: lat, longitude: lon};
+}
+
+function encodeGeoHash(latitude, longitude) {
+	var is_even=1;
+	var i=0;
+	var lat = []; var lon = [];
+	var bit=0;
+	var ch=0;
+	var precision = 12;
+	geohash = "";
+
+	lat[0] = -90.0;  lat[1] = 90.0;
+	lon[0] = -180.0; lon[1] = 180.0;
+	
+	while (geohash.length < precision) {
+	  if (is_even) {
+			mid = (lon[0] + lon[1]) / 2;
+	    if (longitude > mid) {
+				ch |= BITS[bit];
+				lon[0] = mid;
+	    } else
+				lon[1] = mid;
+	  } else {
+			mid = (lat[0] + lat[1]) / 2;
+	    if (latitude > mid) {
+				ch |= BITS[bit];
+				lat[0] = mid;
+	    } else
+				lat[1] = mid;
+	  }
+
+		is_even = !is_even;
+	  if (bit < 4)
+			bit++;
+	  else {
+			geohash += BASE32[ch];
+			bit = 0;
+			ch = 0;
+	  }
+	}
+	return geohash;
+}
+
+</script>
+
+<script>
+    var coordinates = [];
+    var markers = [];
+    var map;
+    var drawingManager;
+    var tilelayer;
+    var rectangle;
+    var infoWindow;
+
+            var initialBounds = {
+          north: 38.99209160356612,
+          south: 38.976092526039,
+          east: -77.08265178826906,
+          west: -77.10591915277098
         };
 
         var boundingBoxCoordinates = $.extend({}, initialBounds);
@@ -178,93 +296,6 @@
                 draggable: true
             });
 
-
-
-            // google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
-            //     //console.log(e);
-            //     var locations = e.overlay.getPath().getArray();
-
-            //     for (var i = 0; i < locations.length; i++) {
-            //         var lat = locations[i].lat();
-            //         var lng = locations[i].lng();
-            //         coordinates.push({lat: lat, lng: lng});
-            //     }
-
-            //     var name = prompt("Please enter a name for a region to save it", "Default Region");
-
-            //     var obj = {
-            //         name: name,
-            //         points: coordinates
-            //     }
-
-            //     if (name != null) {
-            //         obj.name = name;
-            //         console.log(obj);
-
-            //         postAjax('/api/customregion/', obj, function (data) {
-            //             var resp = JSON.parse(data);
-
-            //             //poly.setMap(map);
-            //             coordinates = [];
-            //             for (var i = 0; i < resp.length; i++) {
-
-            //                 var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
-            //                 var marker = new google.maps.Marker({
-            //                     position: markerLatLng,
-            //                     map: map,
-            //                     title: resp[i].name
-            //                 });
-            //                 markers.push(marker);
-
-            //                 function markerOnClickEvent(marker) {
-
-            //                     var infoWindow = new google.maps.InfoWindow({
-            //                         content: marker.title
-            //                     });
-            //                     infoWindow.open(map, marker);
-            //                 }
-
-            //                 google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
-            //             }
-
-            //             //console.log(JSON.parse(data));
-            //         });
-
-            //     }
-            //     else {
-            //         postAjax('/api/customregion/GetListings', obj, function (data) {
-            //             var resp = JSON.parse(data);
-
-            //             //poly.setMap(map);
-            //             coordinates = [];
-            //             for (var i = 0; i < resp.length; i++) {
-
-            //                 var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
-            //                 var marker = new google.maps.Marker({
-            //                     position: markerLatLng,
-            //                     map: map,
-            //                     title: resp[i].name
-            //                 });
-            //                 markers.push(marker);
-
-            //                 function markerOnClickEvent(marker) {
-
-            //                     var infoWindow = new google.maps.InfoWindow({
-            //                         content: marker.title
-            //                     });
-            //                     infoWindow.open(map, marker);
-            //                 }
-
-            //                 google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
-            //             }
-
-            //         });
-            //     }
-
-            //     var opt = {minZoom: 10};
-            //     map.setOptions(opt);
-            // });
-
             map = newMap();
             map.overlayMapTypes.insertAt(0, tilelayer);
             drawingManager.setMap(map);
@@ -338,11 +369,8 @@
 
             postAjax(url, obj, function (data) {
                 var resp = JSON.parse(data);
-
-                //poly.setMap(map);
                 coordinates = [];
                 for (var i = 0; i < resp.length; i++) {
-                    console.log(resp[i]);
 
                     var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
                     var marker = new google.maps.Marker({
@@ -352,15 +380,15 @@
                     });
                     markers.push(marker);
 
-                    function markerOnClickEvent(marker) {
+                    // function markerOnClickEvent(marker) {
 
-                        var infoWindow = new google.maps.InfoWindow({
-                            content: marker.title
-                        });
-                        infoWindow.open(map, marker);
-                    }
+                    //     var infoWindow = new google.maps.InfoWindow({
+                    //         content: marker.title
+                    //     });
+                    //     infoWindow.open(map, marker);
+                    // }
 
-                    google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+                    // google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
                 }
 
             });
