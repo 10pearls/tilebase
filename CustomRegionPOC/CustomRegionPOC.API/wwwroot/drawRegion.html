@@ -346,7 +346,7 @@ function encodeGeoHash(latitude, longitude) {
             }
 
             var obj = {
-                name: areaName,
+                areaName: areaName,
                 points: coordinates
             }
 
@@ -397,11 +397,15 @@ function encodeGeoHash(latitude, longitude) {
         function saveRegion(coordinates, areaName, beds, bathsFull, bathsHalf) {
             if (!coordinates.length) {
                 alert("Please draw a region");
+                throw new Error("draw region");
+            }
+            if (!areaName) {
+                alert("Please give a area name");
                 throw new Error("area name needed");
             }
 
             var obj = {
-                name: areaName,
+                areaName: areaName,
                 points: coordinates,
                 beds: beds,
                 bathsFull: bathsFull,
