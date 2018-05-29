@@ -112,7 +112,10 @@ namespace CustomRegionPOC.Service
 
             List<Tile> tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
 
+            DateTime startDate = DateTime.Now;
             List<Property> listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
+            DateTime endDate = DateTime.Now;
+
             foreach (var item in listing)
             {
                 Tile currentTile = tiles.FirstOrDefault(x => GetTileStr((int)x.Row, (int)x.Column) == item.Tile);
@@ -127,12 +130,19 @@ namespace CustomRegionPOC.Service
                 }
             };
 
-            return listings.Select(x => new
+            dynamic customProperties = listings.Select(x => new
             {
                 x.Lat,
                 x.Lng,
                 x.Name
-            });
+            }).ToList();
+
+            return new
+            {
+                PropertyCount = listings.Count(),
+                Properties = customProperties,
+                TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
+            };
         }
 
         public async Task<List<AreaMaster>> GetArea()

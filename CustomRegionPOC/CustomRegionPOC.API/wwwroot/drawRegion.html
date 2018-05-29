@@ -254,7 +254,6 @@ function encodeGeoHash(latitude, longitude) {
             console.log(e);
 
             var locations = e.overlay.getPath().getArray();
-            coordinates = [];
 
             for (var i = 0; i < locations.length; i++) {
                 var lat = locations[i].lat();
@@ -314,7 +313,6 @@ function encodeGeoHash(latitude, longitude) {
         initMap();
 
         function resetRegions(resetBoundingBox) {
-            coordinates = [];
             map = newMap();
             map.overlayMapTypes.insertAt(0, tilelayer);
             drawingManager.setMap(map);
@@ -370,7 +368,7 @@ function encodeGeoHash(latitude, longitude) {
             console.log(url);
 
             postAjax(url, obj, function (data) {
-                var resp = JSON.parse(data);
+                var resp = JSON.parse(data).properties;
                 coordinates = [];
                 for (var i = 0; i < resp.length; i++) {
 
@@ -415,7 +413,7 @@ function encodeGeoHash(latitude, longitude) {
             }
 
             postAjax('/api/customregion/', obj, function (data) {
-                var resp = JSON.parse(data);
+                var resp = JSON.parse(data).properties;
 
                 //poly.setMap(map);
                 coordinates = [];
