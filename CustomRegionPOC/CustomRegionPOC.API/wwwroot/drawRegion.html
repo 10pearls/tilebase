@@ -27,6 +27,38 @@
     var map;
     var drawingManager;
     var tilelayer;
+    var rectangle;
+    var infoWindow;
+
+            var initialBounds = {
+          north: 38.99209160356612,
+          south: 38.976092526039,
+          east: -77.08265178826906,
+          west: -77.10591915277098
+        };
+
+        var boundingBoxCoordinates = $.extend({}, initialBounds);
+
+        function showNewRect(event) {
+        var ne = rectangle.getBounds().getNorthEast();
+        var sw = rectangle.getBounds().getSouthWest();
+
+        var contentString = '<b>Rectangle moved.</b><br>' +
+            'New north-east corner: ' + ne.lat() + ', ' + ne.lng() + '<br>' +
+            'New south-west corner: ' + sw.lat() + ', ' + sw.lng();
+
+
+        boundingBoxCoordinates.north = ne.lat();
+        boundingBoxCoordinates.east = ne.lng();
+        boundingBoxCoordinates.south = sw.lat();
+        boundingBoxCoordinates.west = sw.lng();
+
+        // Set the info window's content and position.
+        infoWindow.setContent(contentString);
+        infoWindow.setPosition(ne);
+
+        infoWindow.open(map);
+      }
 
             function postAjax(url, data, success) {
 
@@ -128,7 +160,7 @@
             },
             markerOptions: {icon: 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png'},
             circleOptions: {
-                fillColor: '#ffff00',
+                fillColor: '#FF0000',
                 fillOpacity: 1,
                 strokeWeight: 5,
                 clickable: false,
@@ -138,6 +170,14 @@
         });
 
         google.maps.event.addListener(drawingManager, 'overlaycomplete', onOverlayComplete);
+
+        // Define the rectangle and set its editable property to true.
+        rectangle = new google.maps.Rectangle({
+          bounds: initialBounds,
+          editable: true,
+          draggable: true
+        });
+
 
 
         // google.maps.event.addListener(drawingManager, 'overlaycomplete', function (e) {
@@ -230,22 +270,103 @@
         drawingManager.setMap(map);
         var opt = {minZoom: 10};
         map.setOptions(opt);
+
+        rectangle.setMap(map);
+
+        // Add an event listener on the rectangle.
+        rectangle.addListener('bounds_changed', showNewRect);  
+
+        infoWindow = new google.maps.InfoWindow();     
     }
 
     initMap();
 
-    function resetRegions() {
+    function resetRegions(resetBoundingBox) {
             map = newMap();
             map.overlayMapTypes.insertAt(0, tilelayer);
             drawingManager.setMap(map);
             var opt = { minZoom: 10 , disableDoubleClickZoom: false};
             map.setOptions(opt);
+
+
+            if (resetBoundingBox) {
+            rectangle.setMap(null);
+
+            rectangle = new google.maps.Rectangle({
+            bounds: initialBounds,
+            editable: true,
+            draggable: true
+            });
+            }
+
+            rectangle.setMap(map);
+
+            // Add an event listener on the rectangle.
+            rectangle.addListener('bounds_changed', showNewRect);
+
             $("#DynamoStats").text("");
             $("#propertyCount").text("");
         }
 
+    function getCustomRegionProperties(boundingBox, coordinates, areaName, beds, bathsFull, bathsHalf) {
+        if (!coordinates.length) {
+            alert("Please draw a region");
+            throw new Error("area name needed");
+        }
 
-    function getCustomRegionProperties(coordinates, areaName, beds, bathsFull, bathsHalf) {
+            var obj = {
+                name: areaName,
+                points: coordinates
+            }
+
+            debugger;
+            var boundingBoxCoordinatesQueryParams = `north=${boundingBoxCoordinates.north}`;
+            boundingBoxCoordinatesQueryParams += `&east=${boundingBoxCoordinates.east}`;
+            boundingBoxCoordinatesQueryParams += `&south=${boundingBoxCoordinates.south}`;
+            boundingBoxCoordinatesQueryParams += `&west=${boundingBoxCoordinates.west}`;
+
+            var queryParams = "&beds=" + beds + "&bathsFull=" + bathsFull + "&bathsHalf=" + bathsHalf;
+
+            var url = '/api/customregion/GetListings';
+            url += '?';
+
+            if (getByBoundingBox) {
+            url += boundingBoxCoordinatesQueryParams;
+            }
+
+            url += queryParams;
+            console.log(url);
+
+                     postAjax(url, obj, function (data) {
+                    var resp = JSON.parse(data);
+
+                    //poly.setMap(map);
+                    coordinates = [];
+                    for (var i = 0; i < resp.length; i++) {
+
+                        var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+                        var marker = new google.maps.Marker({
+                            position: markerLatLng,
+                            map: map,
+                            title: resp[i].name
+                        });
+                        markers.push(marker);
+
+                        function markerOnClickEvent(marker) {
+
+                            var infoWindow = new google.maps.InfoWindow({
+                                content: marker.title
+                            });
+                            infoWindow.open(map, marker);
+                        }
+
+                        google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+                    }
+
+                });      
+    }    
+
+    function saveRegion(coordinates, areaName, beds, bathsFull, bathsHalf) {
         if (!coordinates.length) {
             alert("Please draw a region");
             throw new Error("area name needed");
@@ -259,11 +380,40 @@
                 bathsHalf: bathsHalf
             }
 
+        postAjax('/api/customregion/', obj, function (data) {
+                    var resp = JSON.parse(data);
 
-    }    
+                    //poly.setMap(map);
+                    coordinates = [];
+                    debugger;
+                    for (var i = 0; i < resp.length; i++) {
+
+                        var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
+                        var marker = new google.maps.Marker({
+                            position: markerLatLng,
+                            map: map,
+                            title: resp[i].name
+                        });
+                        markers.push(marker);
+
+                        function markerOnClickEvent(marker) {
+
+                            var infoWindow = new google.maps.InfoWindow({
+                                content: marker.title
+                            });
+                            infoWindow.open(map, marker);
+                        }
+
+                        google.maps.event.addListener(marker, 'click', markerOnClickEvent(marker));
+                    }
+
+                    //console.log(JSON.parse(data));
+                });
+
+    }
 
 </script>
-<button onclick="resetRegions()">Reset regions</button>
+<button onclick="resetRegions(true)">Reset regions</button>
 <span id="queryCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
 <span id="propertyCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
 <table>
@@ -318,6 +468,7 @@
         </td>
         <td colspan="2">
             <button onclick="getCustomRegionProperties(
+            false,
             coordinates,
             document.getElementById('areaName').value,
             document.getElementById('beds').value,
@@ -326,6 +477,25 @@
             )">
                 Get Custom Region Properties
             </button>
+            <button onclick="getCustomRegionProperties(
+                true,
+                coordinates,
+                document.getElementById('areaName').value,
+                document.getElementById('beds').value,
+                document.getElementById('bathsFull').value,
+                document.getElementById('bathsHalf').value
+                )">
+                    Get Custom Region Properties By Bounding Box
+                </button>
+            <button onclick="saveRegion(
+                coordinates,
+                document.getElementById('areaName').value,
+                document.getElementById('beds').value,
+                document.getElementById('bathsFull').value,
+                document.getElementById('bathsHalf').value
+                )">
+                    Save Region
+                </button>
         </td>
     </tr>
 </table>
