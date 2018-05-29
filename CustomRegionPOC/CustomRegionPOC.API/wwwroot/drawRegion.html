@@ -254,6 +254,7 @@ function encodeGeoHash(latitude, longitude) {
             console.log(e);
 
             var locations = e.overlay.getPath().getArray();
+            coordinates = [];
 
             for (var i = 0; i < locations.length; i++) {
                 var lat = locations[i].lat();
@@ -313,6 +314,7 @@ function encodeGeoHash(latitude, longitude) {
         initMap();
 
         function resetRegions(resetBoundingBox) {
+            coordinates = [];
             map = newMap();
             map.overlayMapTypes.insertAt(0, tilelayer);
             drawingManager.setMap(map);
