@@ -60,13 +60,9 @@ namespace CustomRegionPOC.Common.Model
 
 
 
-        public string Name { get; set; }
-
         public string Tile { get; set; }
 
         public RecordType Type { get; set; }
-
-        public string Guid { get; set; }
 
         public List<LocationPoint> Points { get; set; }
 

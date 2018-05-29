@@ -59,6 +59,17 @@ namespace CustomRegionPOC.API.Controllers
         [Route("GetListings")]
         public async Task<List<Listing>> GetListings([FromBody]Area area)
         {
+            string north = Request.Query["north"];
+            string east = Request.Query["east"];
+            string south = Request.Query["south"];
+            string west = Request.Query["west"];
+            string beds = Request.Query["beds"];
+            string bathsFull = Request.Query["bathsFull"];
+            string bathsHalf = Request.Query["bathsHalf"];
+            string propertyAddressId = Request.Query["propertyAddressId"];
+            string averageValue = Request.Query["averageValue"];
+            string averageRent = Request.Query["averageRent"];
+
             return await this.service.GetListing(area);
         }
 

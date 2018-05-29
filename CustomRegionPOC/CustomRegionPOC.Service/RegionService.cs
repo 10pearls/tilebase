@@ -51,7 +51,7 @@ namespace CustomRegionPOC.Service
             AreaMaster areaMaster = new AreaMaster()
             {
                 AreaID = areaId,
-                AreaName = region.Name,
+                AreaName = region.AreaName,
                 GUID = areaId,
                 IsPredefine = false,
                 OriginalPolygon = "",
@@ -103,21 +103,21 @@ namespace CustomRegionPOC.Service
             });
         }
 
-        public async Task<List<Listing>> GetListing(Area area)
+        public async Task<List<Listing>> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
             List<Listing> listings = new List<Listing>();
 
             List<Tuple<PointF, PointF>> tuples = GenerateTileTuples(area.Points);
             List<Point> tiles = this.Rasterize(tuples);
 
-            List<Property> listing = getRegionByProperty(tiles).Result;
+            List<Property> listing = getRegionByProperty(tiles, north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
             Parallel.ForEach(listing, item =>
             {
                 if (this.isPointInPolygon(area.Points, item.Latitude, item.Longitude))
                 {
                     listings.Add(new Listing
                     {
-                        Name = item.Name,
+                        Name = item.PropertyAddressName,
                         Lat = item.Latitude,
                         Lng = item.Longitude
                     });
@@ -142,7 +142,7 @@ namespace CustomRegionPOC.Service
             return listings;
         }
 
-        public async Task<dynamic> GetArea(string id, string north, string east, string south, string west, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
+        public async Task<dynamic> GetArea(string id, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
             List<Task> tasks = new List<Task>();
 
@@ -524,7 +524,7 @@ namespace CustomRegionPOC.Service
             return allAreasMaster.SelectMany(x => x).ToList();
         }
 
-        private async Task<List<Property>> getRegionByProperty(List<Point> points)
+        private async Task<List<Property>> getRegionByProperty(List<Point> points, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
             List<List<Property>> property = new List<List<Property>>();
             try
@@ -534,11 +534,45 @@ namespace CustomRegionPOC.Service
                     Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
                     keyConditions.Add("Tile", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(GetTileStr(obj.X, obj.Y)) } });
 
+                    Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
+
+                    if (!string.IsNullOrEmpty(beds))
+                    {
+                        queryFilter.Add("Beds", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = beds } } });
+                    }
+                    if (!string.IsNullOrEmpty(bathsFull))
+                    {
+                        queryFilter.Add("BathsFull", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsFull } } });
+                    }
+                    if (!string.IsNullOrEmpty(bathsHalf))
+                    {
+                        queryFilter.Add("BathsHalf", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsHalf } } });
+                    }
+                    if (!string.IsNullOrEmpty(propertyAddressId))
+                    {
+                        queryFilter.Add("PropertyAddressID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = propertyAddressId } } });
+                    }
+                    if (!string.IsNullOrEmpty(averageValue))
+                    {
+                        queryFilter.Add("AverageValue", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageValue } } });
+                    }
+                    if (!string.IsNullOrEmpty(averageRent))
+                    {
+                        queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
+                    }
+
+                    if (!string.IsNullOrEmpty(south) && !string.IsNullOrEmpty(north) && !string.IsNullOrEmpty(east) && !string.IsNullOrEmpty(west))
+                    {
+                        queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
+                        queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
+                    }
+
                     var request = new QueryRequest
                     {
                         TableName = propertyTableName,
                         ReturnConsumedCapacity = "TOTAL",
                         KeyConditions = keyConditions,
+                        QueryFilter = queryFilter,
                         AttributesToGet = new List<string> { "Latitude", "Longitude" },
                         Select = "SPECIFIC_ATTRIBUTES"
 
