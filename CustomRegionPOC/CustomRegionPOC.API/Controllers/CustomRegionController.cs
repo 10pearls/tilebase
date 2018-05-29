@@ -29,19 +29,14 @@ namespace CustomRegionPOC.API.Controllers
         [HttpPost]
         public async Task<dynamic> Post([FromBody]Area area)
         {
-            List<Listing> listings = new List<Listing>();
             List<Task> tasks = new List<Task>();
-
 
             tasks.Add(Task.Factory.StartNew(() =>
             {
                 this.service.Create(area).Wait();
             }));
 
-            tasks.Add(Task.Factory.StartNew(() =>
-            {
-                listings = this.service.GetListing(area).Result;
-            }));
+            dynamic listings = this.service.GetListing(area).Result;
 
             Task.WaitAll(tasks.ToArray());
 

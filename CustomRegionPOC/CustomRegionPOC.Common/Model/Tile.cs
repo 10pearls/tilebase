@@ -18,6 +18,6 @@ namespace CustomRegionPOC.Common.Model
         public double Bound3 { get; set; }
         public double Bound4 { get; set; }
 
-        public bool IsPartialTiles { get; set; }
+        public bool IsPartialTile { get; set; }
     }
 }

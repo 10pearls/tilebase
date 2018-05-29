@@ -60,13 +60,15 @@ namespace CustomRegionPOC.Service
                 Points = region.Points
             };
 
-            List<Task> tasks = new List<Task>();
-            tasks.Add(Task.Factory.StartNew(() => { this.context.SaveAsync<AreaMaster>(areaMaster).Wait(); }));
+            //List<Task> tasks = new List<Task>();
+            //tasks.Add(Task.Factory.StartNew(() => {  }));
+
+            this.context.SaveAsync<AreaMaster>(areaMaster).Wait();
 
             List<Area> areas = this.transformRegion(region, this.GetCoordinateTile(region.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true));
             SaveAreas(areas);
 
-            Task.WaitAll(tasks.ToArray());
+            //Task.WaitAll(tasks.ToArray());
         }
 
         public async Task<List<AreaMaster>> Get(decimal lat, decimal lng)
@@ -114,7 +116,7 @@ namespace CustomRegionPOC.Service
             foreach (var item in listing)
             {
                 Tile currentTile = tiles.FirstOrDefault(x => GetTileStr((int)x.Row, (int)x.Column) == item.Tile);
-                if (!currentTile.IsPartialTiles || (currentTile.IsPartialTiles && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude)))
+                if (!currentTile.IsPartialTile || (currentTile.IsPartialTile && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude)))
                 {
                     listings.Add(new Listing
                     {
@@ -422,7 +424,7 @@ namespace CustomRegionPOC.Service
                 tempObj.Tiles = null;
                 tempObj.OriginalPolygon = "";
                 tempObj.Points = null;
-                tempObj.IsPartialTiles = tile.IsPartialTiles;
+                tempObj.IsPartialTiles = tile.IsPartialTile;
 
                 areas.Add(tempObj);
             }
