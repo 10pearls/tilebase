@@ -70,7 +70,7 @@ namespace CustomRegionPOC.API.Controllers
             string averageValue = Request.Query["averageValue"];
             string averageRent = Request.Query["averageRent"];
 
-            return await this.service.GetListing(area);
+            return await this.service.GetListing(area, north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent);
         }
 
         [HttpGet]

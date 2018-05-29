@@ -17,5 +17,7 @@ namespace CustomRegionPOC.Common.Model
         public double Bound2 { get; set; }
         public double Bound3 { get; set; }
         public double Bound4 { get; set; }
+
+        public bool IsPartialTiles { get; set; }
     }
 }

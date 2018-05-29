@@ -114,8 +114,6 @@ namespace CustomRegionPOC.Console
                     Area tempObj = (Area)obj.Clone();
                     tempObj.Tile = regionServiceInstance.GetTileStr((int)point.Lat, (int)point.Lng);
                     tempObj.Type = RecordType.Area;
-                    tempObj.Guid = Guid.NewGuid().ToString();
-                    tempObj.Name = obj.AreaName;
                     tempObj.OriginalPolygon = "";
                     tempObj.Points = null;
 

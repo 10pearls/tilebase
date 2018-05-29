@@ -365,7 +365,6 @@ namespace CustomRegionPOC.Service
                     dataStream = response.GetResponseStream();
                     StreamReader reader = new StreamReader(dataStream);
                     string responseFromServer = reader.ReadToEnd();
-                    //Console.WriteLine(responseFromServer);
                     reader.Close();
                     dataStream.Close();
                     response.Close();
@@ -460,10 +459,8 @@ namespace CustomRegionPOC.Service
                 tempObj.Type = RecordType.Area;
                 tempObj.OriginalPolygon = "((" + string.Join(", ", locationPoints) + "))";
                 tempObj.Tiles = null;
-                tempObj.Guid = Guid.NewGuid().ToString();
                 tempObj.OriginalPolygon = "";
                 tempObj.Points = null;
-                tempObj.Guid = Guid.NewGuid().ToString();
 
                 areas.Add(tempObj);
             }
