@@ -354,7 +354,6 @@ namespace CustomRegionPOC.Console
             List<AttributeDefinition> attributeDefinition = new List<AttributeDefinition>()
                 {
                     new AttributeDefinition { AttributeName = "Tile", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "IsPredefine", AttributeType = ScalarAttributeType.N },
                     new AttributeDefinition { AttributeName = "PropertyID", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "GeoHash", AttributeType = ScalarAttributeType.S }

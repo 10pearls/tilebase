@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace CustomRegionPOC.Common.Model
 {
-    [DynamoDBTable("tile_property_v2")]
+    [DynamoDBTable("tile_property_v2_geohash")]
     public class Property : ICloneable
     {
         //properties
