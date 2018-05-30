@@ -111,15 +111,15 @@ namespace CustomRegionPOC.Service
             List<Listing> listings = new List<Listing>();
 
 
-            DateTime startDateCoordinate = DateTime.Now;
+            DateTime startTimeLambda = DateTime.Now;
             List<Tile> tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
-            DateTime endDateCoordinate = DateTime.Now;
+            DateTime endTimeLambda = DateTime.Now;
 
             DateTime startDate = DateTime.Now;
-            List<Property> listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
+            dynamic listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
             DateTime endDate = DateTime.Now;
 
-            foreach (var item in listing)
+            foreach (var item in listing.Properties)
             {
                 Tile currentTile = tiles.FirstOrDefault(x => GetTileStr((int)x.Row, (int)x.Column) == item.Tile);
                 if (!currentTile.IsPartialTile || (currentTile.IsPartialTile && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude)))
@@ -142,10 +142,12 @@ namespace CustomRegionPOC.Service
 
             return new
             {
-                PropertyCount = listings.Count(),
+                PropertyCount = listing.TotalRecordCount,
+                ScanCount = listing.ScanCount,
+                ConsumedCapacityCount = listing.ConsumedCapacityCount,
                 Properties = customProperties,
                 TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds,
-                TotalQueryExecutionTimeLambda = (endDateCoordinate - startDateCoordinate).TotalMilliseconds
+                TotalLambdaExecutionTime = (endTimeLambda - startTimeLambda).TotalMilliseconds
             };
         }
 
@@ -499,8 +501,11 @@ namespace CustomRegionPOC.Service
             return allAreasMaster.SelectMany(x => x).ToList();
         }
 
-        private async Task<List<Property>> getRegionByProperty(List<Point> points, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
+        private async Task<dynamic> getRegionByProperty(List<Point> points, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
+            int TotalRecordCount = 0;
+            int ScanCount = 0;
+            double ConsumedCapacityCount = 0;
             List<List<Property>> property = new List<List<Property>>();
             try
             {
@@ -552,7 +557,11 @@ namespace CustomRegionPOC.Service
                         Select = "SPECIFIC_ATTRIBUTES"
 
                     };
-                    var response = dynamoDBClient.QueryAsync(request).Result;
+                    QueryResponse response = dynamoDBClient.QueryAsync(request).Result;
+
+                    TotalRecordCount += response.Count;
+                    ScanCount += response.ScannedCount;
+                    ConsumedCapacityCount += response.ConsumedCapacity.CapacityUnits;
 
                     property.Add(Property.ConvertToEntity(response.Items));
                 });
@@ -561,7 +570,14 @@ namespace CustomRegionPOC.Service
             {
                 throw ex;
             }
-            return property.SelectMany(x => x).ToList();
+
+            return new
+            {
+                Properties = property.SelectMany(x => x).ToList(),
+                TotalRecordCount,
+                ConsumedCapacityCount,
+                ScanCount
+            };
         }
 
         private List<AreaMaster> filterRegionList(List<AreaMaster> areas, decimal lat, decimal lng)
