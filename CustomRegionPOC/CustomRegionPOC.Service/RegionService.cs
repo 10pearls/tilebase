@@ -200,6 +200,9 @@ namespace CustomRegionPOC.Service
             DateTime startDate = DateTime.Now;
             Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
 
+
+            queryFilter.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
+            
             if (!string.IsNullOrEmpty(beds))
             {
                 queryFilter.Add("Beds", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = beds } } });
@@ -225,19 +228,20 @@ namespace CustomRegionPOC.Service
                 queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
             }
 
-            if (!string.IsNullOrEmpty(south) && !string.IsNullOrEmpty(north) && !string.IsNullOrEmpty(east) && !string.IsNullOrEmpty(west))
-            {
-                queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
-                queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
-            }
+            // if (!string.IsNullOrEmpty(south) && !string.IsNullOrEmpty(north) && !string.IsNullOrEmpty(east) && !string.IsNullOrEmpty(west))
+            // {
+            //     queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "BETWEEN", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
+            //     queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "BETWEEN", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
+            // }
 
+            string commonPrefix = geoHashHelper.getCommonPrefix(Convert.ToDouble(north), Convert.ToDouble(south), Convert.ToDouble(east), Convert.ToDouble(west));
 
             //Parallel.For(0, 11, segment =>
             //{
             //    string innerId = id + "-" + segment;
             Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
             keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
-            keyConditions.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
+            keyConditions.Add("GeoHash", new Condition() { ComparisonOperator = "BEGINS_WITH", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = commonPrefix } } });
 
             var request = new QueryRequest
             {

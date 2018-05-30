@@ -4,6 +4,8 @@ using System.Linq;
 using System.Web;
 using System.IO;
 using System.Data;
+using System.Drawing;
+using System.Text;
 
 namespace CustomRegionPOC.Common.Helper
 {
@@ -150,6 +152,35 @@ public static class geoHashHelper
                 }
             }
             return geohash;
+        }
+
+        public static string CommonPrefix(string a, string b)
+        {
+            if (a == null)
+                throw new ArgumentNullException(nameof(a));
+
+            if (b == null)
+                throw new ArgumentNullException(nameof(b));
+
+            var min = Math.Min(a.Length, b.Length);
+            var sb = new StringBuilder(min);
+            for (int i = 0; i < min && a[i] == b[i]; i++)
+                sb.Append(a[i]);
+
+            return sb.ToString();
+        }
+
+        public static string getCommonPrefix(double north, double south, double east, double west) {
+            string northEast = Encode(north, east, 10);
+            string northWest = Encode(north, west, 10);
+            string southEast = Encode(south, east, 10);
+            string southWest = Encode(south, east, 10);
+
+            string commonPrefix =  CommonPrefix(northEast, northWest);
+            commonPrefix = CommonPrefix(commonPrefix, southEast);
+            commonPrefix = CommonPrefix(commonPrefix, southWest);
+            
+            return commonPrefix;
         }
     }
 }
