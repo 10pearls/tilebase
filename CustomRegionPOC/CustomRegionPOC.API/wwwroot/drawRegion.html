@@ -251,6 +251,7 @@ function encodeGeoHash(latitude, longitude) {
         });
 
         function onOverlayComplete(e) {
+            coordinates = [];
             console.log(e);
 
             var locations = e.overlay.getPath().getArray();
@@ -368,6 +369,13 @@ function encodeGeoHash(latitude, longitude) {
             console.log(url);
 
             postAjax(url, obj, function (data) {
+                debugger;
+                if (markers.length) {
+                    for (var i = i; i < markers.length; i++) {
+                        markers[i].setMap(null);
+                    }
+                    markers = [];
+                }
                 var resp = JSON.parse(data).properties;
                 coordinates = [];
                 for (var i = 0; i < resp.length; i++) {
@@ -418,6 +426,13 @@ function encodeGeoHash(latitude, longitude) {
                 //poly.setMap(map);
                 coordinates = [];
                 debugger;
+                if (markers.length) {
+                    for (var i = i; i < markers.length; i++) {
+                        markers[i].setMap(null);
+                    }
+                    markers = [];
+                }
+                
                 for (var i = 0; i < resp.length; i++) {
 
                     var markerLatLng = { lat: resp[i].lat, lng: resp[i].lng };
