@@ -116,6 +116,11 @@ namespace CustomRegionPOC.Service
             List<Tile> tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
             DateTime endTimeLambda = DateTime.Now;
 
+            if (tiles == null || tiles.Count() == 0)
+            {
+                throw new Exception("Unable To Calculate Tiles");
+            }
+
             DateTime startDate = DateTime.Now;
             dynamic listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
             DateTime endDate = DateTime.Now;
