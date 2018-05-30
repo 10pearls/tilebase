@@ -161,6 +161,8 @@ namespace CustomRegionPOC.Common.Model
 
         public bool IsPredefine { get; set; }
 
+        public string GeoHash { get; set; }
+
         public List<LocationPoint> Points { get; set; }
 
         public List<Tile> Tiles { get; set; }

@@ -316,7 +316,7 @@ namespace CustomRegionPOC.Console
 
             List<string> nonKeyAttributes = new List<string>();
 
-            nonKeyAttributes.Add("AreaID");
+            // nonKeyAttributes.Add("AreaID");
             nonKeyAttributes.Add("IsPredefine");
             nonKeyAttributes.Add("PropertyID");
             nonKeyAttributes.Add("PropertyAddressID");
@@ -328,6 +328,7 @@ namespace CustomRegionPOC.Console
             nonKeyAttributes.Add("AverageRent");
             nonKeyAttributes.Add("Latitude");
             nonKeyAttributes.Add("Longitude");
+            // nonKeyAttributes.Add("GeoHash");
 
             projection.NonKeyAttributes = nonKeyAttributes;
 
@@ -336,7 +337,7 @@ namespace CustomRegionPOC.Console
 
             List<KeySchemaElement> propertyAddressIDKeySchema = new List<KeySchemaElement>() {
                 new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "IsPredefine", KeyType = KeyType.RANGE }
+                new KeySchemaElement { AttributeName = "GeoHash", KeyType = KeyType.RANGE }
             };
             globalSecondaryIndexes.Add(new GlobalSecondaryIndex()
             {
@@ -356,9 +357,10 @@ namespace CustomRegionPOC.Console
                     new AttributeDefinition { AttributeName = "IsPredefine", AttributeType = ScalarAttributeType.N },
                     new AttributeDefinition { AttributeName = "PropertyID", AttributeType = ScalarAttributeType.S },
                     new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "GeoHash", AttributeType = ScalarAttributeType.S }
                 };
 
-            regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, globalSecondaryIndexes, localSecondaryIndexes, "Tile", "PropertyID").Wait();
+            regionServiceInstance.CreateTempTable("tile_property_v2_geohash", attributeDefinition, globalSecondaryIndexes, localSecondaryIndexes, "Tile", "PropertyID").Wait();
 
             List<Property> properties = new List<Property>();
             Random rnd = new Random();
@@ -374,6 +376,7 @@ namespace CustomRegionPOC.Console
                 tempObj.Guid = rnd.Next(1, 16);
                 tempObj.IsPredefine = true;
                 tempObj.Name = obj.PropertyAddressName;
+                tempObj.GeoHash = geoHashHelper.Encode((double)obj.Latitude, (double)obj.Longitude, 10);
                 properties.Add(tempObj);
             };
 
