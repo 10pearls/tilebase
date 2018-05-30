@@ -154,10 +154,14 @@ namespace CustomRegionPOC.Service
 
         public async Task<List<AreaMaster>> GetArea()
         {
+            Dictionary<string, Condition> queryCondition = new Dictionary<string, Condition>();
+            queryCondition.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
+
             var request = new ScanRequest
             {
                 TableName = areaMasterTableName,
-                IndexName = "AreaIDIndex"
+                IndexName = "AreaIDIndex",
+                ScanFilter = queryCondition
             };
 
             var response = await dynamoDBClient.ScanAsync(request);
