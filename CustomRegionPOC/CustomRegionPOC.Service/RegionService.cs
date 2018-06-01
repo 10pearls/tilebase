@@ -125,10 +125,10 @@ namespace CustomRegionPOC.Service
             List<Tile> tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true, boundingBox);
             DateTime endTimeLambda = DateTime.Now;
 
-            if (tiles == null || tiles.Count() == 0)
-            {
-                throw new Exception("Unable To Calculate Tiles");
-            }
+            //if (tiles == null || tiles.Count() == 0)
+            //{
+            //    throw new Exception("Unable To Calculate Tiles");
+            //}
 
             DateTime startDate = DateTime.Now;
             dynamic listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
@@ -324,7 +324,7 @@ namespace CustomRegionPOC.Service
                 List<Tile> tiles = new List<Tile>();
                 object lockObj = new object();
 
-                Parallel.ForEach(tilesCoordinates.ChunkBy(200), tilesCoordinate =>
+                Parallel.ForEach(tilesCoordinates.ChunkBy(600), tilesCoordinate =>
                 {
                     string postData = JSONHelper.GetString(tilesCoordinate.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.Lat), Lng = Convert.ToDecimal(x.Lng) }).ToList());
                     if (withRasterize)
