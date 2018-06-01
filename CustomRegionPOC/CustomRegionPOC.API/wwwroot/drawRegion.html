@@ -16,6 +16,7 @@
         }
     </style>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="polyline.js"></script>
 </head>
 <body>
     <div id="map"></div>
@@ -142,7 +143,8 @@
             for (var i = 0; i < locations.length; i++) {
                 var lat = locations[i].lat();
                 var lng = locations[i].lng();
-                coordinates.push({ lat: lat, lng: lng });
+                // coordinates.push({ lat: lat, lng: lng });
+                coordinates.push([lat, lng]);
             }
 
         }
@@ -233,7 +235,7 @@
 
             var obj = {
                 areaName: areaName,
-                points: coordinates
+                encodedPolygon: polyline.encode(coordinates)
             }
 
             var boundingBoxCoordinatesQueryParams = `north=${boundingBoxCoordinates.north}`;
@@ -293,7 +295,7 @@
 
             var obj = {
                 areaName: areaName,
-                points: coordinates,
+                encodedPolygon: polyline.encode(coordinates),
                 beds: beds,
                 bathsFull: bathsFull,
                 bathsHalf: bathsHalf
