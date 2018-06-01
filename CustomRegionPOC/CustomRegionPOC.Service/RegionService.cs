@@ -26,7 +26,7 @@ namespace CustomRegionPOC.Service
     {
         private string areaTableName = "tile_area_v2";
         private string areaMasterTableName = "tile_area_master_v2";
-        private string propertyTableName = "tile_property_v2";
+        private string propertyTableName = "tile_property_v2_geohash";
 
         private AmazonDynamoDBClient dynamoDBClient;
         private string tilebaseURL;
@@ -241,8 +241,13 @@ namespace CustomRegionPOC.Service
             //    string innerId = id + "-" + segment;
             Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
             keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
-            keyConditions.Add("GeoHash", new Condition() { ComparisonOperator = "BEGINS_WITH", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = commonPrefix } } });
+            
+            if (north != "" && south != "" && east != "" && west != "") {
+                keyConditions.Add("GeoHash", new Condition() { ComparisonOperator = "BEGINS_WITH", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = commonPrefix } } });
+            }
+            
 
+            System.Console.WriteLine(commonPrefix);
             var request = new QueryRequest
             {
                 TableName = propertyTableName,
