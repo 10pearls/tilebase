@@ -97,7 +97,6 @@
             });
         }
 
-
         function TileToQuadKey(x, y, zoom) {
             var quad = "";
             for (var i = zoom; i > 0; i--) {
@@ -221,10 +220,10 @@
             // Add an event listener on the rectangle.
             rectangle.addListener('bounds_changed', showNewRect);
 
-                $("#propertyCount").text("");
-                $("#scanCount").text("");
-                $("#totalLambdaExecutionTime").text("");
-                $("#totalQueryExecutionTime").text("");
+            $("#propertyCount").text("");
+            $("#scanCount").text("");
+            $("#totalLambdaExecutionTime").text("");
+            $("#totalQueryExecutionTime").text("");
         }
 
         function getCustomRegionProperties(boundingBox, coordinates, areaName, beds, bathsFull, bathsHalf) {
@@ -314,8 +313,6 @@
                 }
 
                 for (var i = 0; i < res.properties.length; i++) {
-                    debugger;
-
                     var markerLatLng = { lat: res.properties[i].lat, lng: res.properties[i].lng };
                     var marker = new google.maps.Marker({
                         position: markerLatLng,

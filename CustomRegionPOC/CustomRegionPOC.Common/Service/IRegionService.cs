@@ -14,7 +14,7 @@ namespace CustomRegionPOC.Common.Service
 
         Task SaveListing(Listing listing);
 
-        Task<dynamic> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null);
+        Task<dynamic> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null, string encodedTiles = null);
 
         Task<List<AreaMaster>> GetArea();
 

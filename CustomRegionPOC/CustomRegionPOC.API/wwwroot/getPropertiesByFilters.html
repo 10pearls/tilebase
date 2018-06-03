@@ -18,6 +18,7 @@
             padding: 0;
         }
     </style>
+    <script src="polyline.js"></script>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 </head>
 <body>
@@ -207,9 +208,8 @@
                 resetPolygons(false);
 
                 res = JSON.parse(res);
-
                 var poly = new google.maps.Polygon({
-                    paths: res.area[0].points,
+                    paths: polyline.decode(res.area[0].encodedPolygon).map(x => ({ lat: x[0], lng: x[1] })),
                     strokeColor: '#FF0000',
                     strokeOpacity: 0.8,
                     strokeWeight: 2,
@@ -218,7 +218,6 @@
                 });
                 poly.setMap(map);
                 //panMap(res.area[0].points[0].lat, res.area[0].points[0].lng);
-                //debugger;
 
 
                 for (var i = 0; i < res.properties.length; i++) {
@@ -231,8 +230,10 @@
                     });
                 }
 
-                $("#queryCount").text("Total Dynamo Query Time:" + res.totalQueryExecutionTime);
-                $("#propertyCount").text("Total Properties Returned:" + res.propertyCount);
+                $("#propertyCount").text("Property Count:" + res.properties.length);
+                $("#scanCount").text("Scan Count:" + res.scanCount);
+                $("#totalLambdaExecutionTime").text("Total Lambda Execution Time:" + res.totalLambdaExecutionTime);
+                $("#totalQueryExecutionTime").text("Total Query Execution Time:" + res.totalQueryExecutionTime);
 
                 // rectangle.setOptions({draggable: false});
 
@@ -250,8 +251,10 @@
     <!-- <input type="button" value="find regions" onclick="window.location.href='drawRegion.html'"/>
     <br><br> -->
     <button onclick="resetPolygons(true)">Reset regions</button>
-    <span id="queryCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
     <span id="propertyCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+    <span id="scanCount" style="color:red;font-size:large;background-color:aqua"></span> <br />
+    <span id="totalLambdaExecutionTime" style="color:red;font-size:large;background-color:aqua"></span> <br />
+    <span id="totalQueryExecutionTime" style="color:red;font-size:large;background-color:aqua"></span> <br />
 
     <!-- <button onclick="panMap()">Pan Map</button> -->
     <!-- City name: <input style="margin-left: 10px;" type="text" name="cityName" id="city"><br> -->

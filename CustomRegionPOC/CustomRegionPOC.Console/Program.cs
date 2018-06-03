@@ -49,9 +49,9 @@ namespace CustomRegionPOC.Console
                 DataRow[] dtProperties = csvHelper.parseAreaCsv(propertiesPath).Rows.Cast<DataRow>().ToArray();
                 DataRow[] dtPropertyAddresses = csvHelper.parseAreaCsv(propertyAddressPath).Rows.Cast<DataRow>().ToArray();
 
-                //migrateAreas(dtAreas);
+                migrateAreas(dtAreas);
 
-                migrateProperty(dtProperties, dtPropertyAddresses);
+                //migrateProperty(dtProperties, dtPropertyAddresses);
             }
             catch (Exception ex)
             {
@@ -92,21 +92,24 @@ namespace CustomRegionPOC.Console
                 areaMigration.Add(obj);
             }
 
-            var areaListingMigration = dtAreas.Select(area => new AreaMaster()
-            {
-                GUID = Guid.NewGuid().ToString(),
-                AreaID = area[0].ToString(),
-                AreaName = area[1].ToString(),
-                IsPredefine = true,
-                OriginalPolygon = area[10].ToString()
-            });
 
+            List<AreaMaster> areaMaster = new List<AreaMaster>();
             List<Area> areas = new List<Area>();
             foreach (Area obj in areaMigration)
             {
-                obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lng = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lat = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
+                var tempPoints = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lng = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lat = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
+
+                obj.Points = tempPoints;
 
                 List<Tile> rasterizePoints = regionServiceInstance.GetCoordinateTile(obj.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
+
+                AreaMaster areaMasterObj = new AreaMaster();
+                areaMasterObj.AreaID = obj.AreaID;
+                areaMasterObj.AreaName = obj.AreaName;
+                areaMasterObj.EncodedPolygon = GooglePoints.EncodeBase64(tempPoints.Select(x => new CoordinateEntity(Convert.ToDouble(x.Lat), Convert.ToDouble(x.Lng))));
+                areaMasterObj.EncodedTiles = GooglePoints.EncodeBase64(rasterizePoints.Select(x => new CoordinateEntity(Convert.ToDouble(x.Row), Convert.ToDouble(x.Column))));
+                areaMasterObj.IsPredefine = true;
+                areaMaster.Add(areaMasterObj);
 
                 foreach (var point in rasterizePoints)
                 {
@@ -120,14 +123,6 @@ namespace CustomRegionPOC.Console
                 }
             }
 
-            List<AreaMaster> areaListings = new List<AreaMaster>();
-            foreach (AreaMaster obj in areaListingMigration)
-            {
-                obj.Points = obj.OriginalPolygon.Replace("MULTIPOLYGON", "").Replace("POLYGON", "").Replace("(", "").Replace(")", "").Split(",").Select(x => x.Trim()).Where(x => x.Length > 0).Select(x => new LocationPoint() { Lng = Convert.ToDecimal(x.Substring(0, x.IndexOf(" ")).Trim()), Lat = Convert.ToDecimal(x.Substring(x.IndexOf(" "), x.Length - x.IndexOf(" ")).Trim()) }).ToList();
-                obj.OriginalPolygon = "";
-                areaListings.Add(obj);
-            }
-
 
             List<AttributeDefinition> areaAttributeDefinition = new List<AttributeDefinition>()
             {
@@ -135,20 +130,14 @@ namespace CustomRegionPOC.Console
                 new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S }
             };
 
-            Projection projection = new Projection() { ProjectionType = "INCLUDE" };
-
-            var nonKeyAttributes = new List<string>()
-            {
-                "AreaName"
-            };
-            projection.NonKeyAttributes = nonKeyAttributes;
-
+            Projection projection = new Projection() { ProjectionType = "INCLUDE", NonKeyAttributes = new List<string> { "AreaName" } };
             List<LocalSecondaryIndex> localSecondaryIndexes = new List<LocalSecondaryIndex>();
 
             List<KeySchemaElement> areaIDKeySchema = new List<KeySchemaElement>() {
                 new KeySchemaElement { AttributeName = "Tile", KeyType = KeyType.HASH },
                 new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.RANGE }
             };
+
             localSecondaryIndexes.Add(new LocalSecondaryIndex()
             {
                 IndexName = "AreaIDIndex",
@@ -156,40 +145,56 @@ namespace CustomRegionPOC.Console
                 KeySchema = areaIDKeySchema
             });
 
-            regionServiceInstance.CreateTempTable("tile_area_v2", areaAttributeDefinition, null, localSecondaryIndexes, "Tile", "AreaID").Wait();
+            regionServiceInstance.CreateTempTable(regionServiceInstance.areaTableName, areaAttributeDefinition, null, localSecondaryIndexes, "Tile", "AreaID").Wait();
 
 
 
 
 
-            Projection areaListingProjection = new Projection() { ProjectionType = "INCLUDE", NonKeyAttributes = new List<string> { "IsPredefine" } };
+            List<LocalSecondaryIndex> areaMasterLocalSecondaryIndexes = new List<LocalSecondaryIndex>();
 
-            List<LocalSecondaryIndex> areaListingLocalSecondaryIndexes = new List<LocalSecondaryIndex>();
-
-            List<KeySchemaElement> areaListingKeySchema = new List<KeySchemaElement>() {
+            List<KeySchemaElement> areaMasterAreaIDKeySchema = new List<KeySchemaElement>() {
                 new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.HASH },
                 new KeySchemaElement { AttributeName = "AreaName", KeyType = KeyType.RANGE }
             };
-            areaListingLocalSecondaryIndexes.Add(new LocalSecondaryIndex()
+            areaMasterLocalSecondaryIndexes.Add(new LocalSecondaryIndex()
             {
                 IndexName = "AreaIDIndex",
-                Projection = areaListingProjection,
-                KeySchema = areaListingKeySchema
+                Projection = new Projection() { ProjectionType = "INCLUDE", NonKeyAttributes = new List<string> { "IsPredefine" } },
+                KeySchema = areaMasterAreaIDKeySchema
             });
 
-            List<AttributeDefinition> areaListingAttributeDefinition = new List<AttributeDefinition>()
+            List<KeySchemaElement> areaMasterAreaTileKeySchema = new List<KeySchemaElement>() {
+                new KeySchemaElement { AttributeName = "AreaID", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "IsPredefine", KeyType = KeyType.RANGE }
+            };
+            areaMasterLocalSecondaryIndexes.Add(new LocalSecondaryIndex()
+            {
+                IndexName = "AreaTileIndex",
+                Projection = new Projection() { ProjectionType = "INCLUDE", NonKeyAttributes = new List<string> { "EncodedTiles" } },
+                KeySchema = areaMasterAreaTileKeySchema
+            });
+
+            areaMasterLocalSecondaryIndexes.Add(new LocalSecondaryIndex()
+            {
+                IndexName = "AreaPolygonIndex",
+                Projection = new Projection() { ProjectionType = "INCLUDE", NonKeyAttributes = new List<string> { "EncodedPolygon" } },
+                KeySchema = areaMasterAreaTileKeySchema
+            });
+
+            List<AttributeDefinition> areaMasterAttributeDefinition = new List<AttributeDefinition>()
             {
                 new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
-                new AttributeDefinition { AttributeName = "AreaName", AttributeType = ScalarAttributeType.S }
+                new AttributeDefinition { AttributeName = "AreaName", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "IsPredefine", AttributeType = ScalarAttributeType.N },
             };
 
-            regionServiceInstance.CreateTempTable("tile_area_master_v2", areaListingAttributeDefinition, null, areaListingLocalSecondaryIndexes, "AreaID", "AreaName").Wait();
+            regionServiceInstance.CreateTempTable(regionServiceInstance.areaMasterTableName, areaMasterAttributeDefinition, null, areaMasterLocalSecondaryIndexes, "AreaID", "AreaName").Wait();
 
-            foreach (var obj in areaListings.ToList().ChunkBy(100))
+            foreach (var obj in areaMaster.ToList().ChunkBy(100))
             {
                 try
                 {
-
                     System.Console.WriteLine("adding Area Master chunk");
                     var batch = regionServiceInstance.context.CreateBatchWrite<AreaMaster>();
                     batch.AddPutItems(obj);
@@ -358,7 +363,7 @@ namespace CustomRegionPOC.Console
                     new AttributeDefinition { AttributeName = "AreaID", AttributeType = ScalarAttributeType.S },
                 };
 
-            regionServiceInstance.CreateTempTable("tile_property_v2", attributeDefinition, globalSecondaryIndexes, localSecondaryIndexes, "Tile", "PropertyID").Wait();
+            regionServiceInstance.CreateTempTable(regionServiceInstance.propertyTableName, attributeDefinition, globalSecondaryIndexes, localSecondaryIndexes, "Tile", "PropertyID").Wait();
 
             List<Property> properties = new List<Property>();
             Random rnd = new Random();

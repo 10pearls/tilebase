@@ -44,7 +44,7 @@ function encode(current, previous, factor) {
  *
  * @see https://github.com/Project-OSRM/osrm-frontend/blob/master/WebContent/routing/OSRM.RoutingGeometry.js
  */
-polyline.decode = function(str, precision) {
+polyline.decode = function (str, precision) {
     var index = 0,
         lat = 0,
         lng = 0,
@@ -100,7 +100,7 @@ polyline.decode = function(str, precision) {
  * @param {Number} precision
  * @returns {String}
  */
-polyline.encode = function(coordinates, precision) {
+polyline.encode = function (coordinates, precision) {
     if (!coordinates.length) { return ''; }
 
     var factor = Math.pow(10, precision || 5),
@@ -130,7 +130,7 @@ function flipped(coords) {
  * @param {Number} precision
  * @returns {String}
  */
-polyline.fromGeoJSON = function(geojson, precision) {
+polyline.fromGeoJSON = function (geojson, precision) {
     if (geojson && geojson.type === 'Feature') {
         geojson = geojson.geometry;
     }
@@ -147,7 +147,7 @@ polyline.fromGeoJSON = function(geojson, precision) {
  * @param {Number} precision
  * @returns {Object}
  */
-polyline.toGeoJSON = function(str, precision) {
+polyline.toGeoJSON = function (str, precision) {
     var coords = polyline.decode(str, precision);
     return {
         type: 'LineString',

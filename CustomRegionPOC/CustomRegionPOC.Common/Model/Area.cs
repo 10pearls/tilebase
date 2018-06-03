@@ -58,6 +58,8 @@ namespace CustomRegionPOC.Common.Model
 
         public string AreaStatus { get; set; }
 
+        public string EncodedPolygon { get; set; }
+
 
 
         public string Tile { get; set; }

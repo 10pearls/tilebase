@@ -18,143 +18,144 @@
             padding: 0;
         }
     </style>
+    <script src="polyline.js"></script>
 </head>
 <body>
-<div id="map"></div>
-<script>
+    <div id="map"></div>
+    <script>
 
-    function getAjax(url, success) {
-        var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
-        xhr.open('GET', url);
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
-        };
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.send();
-        return xhr;
-    }
+        function getAjax(url, success) {
+            var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+            xhr.open('GET', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState > 3 && xhr.status == 200) success(xhr.responseText);
+            };
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send();
+            return xhr;
+        }
 
-    var coordinates = [];
-    var map;
-    var tilelayer;
-    var mapOnClickEvent;
+        var coordinates = [];
+        var map;
+        var tilelayer;
+        var mapOnClickEvent;
 
-    function initMap() {
-        map = new google.maps.Map(document.getElementById('map'), {
-            center: {lat: 39.48074006114467, lng: -101.43078939104066},
-            zoom: 10
-        });
-
-
-        tilelayer = new google.maps.ImageMapType({
-            getTileUrl: function (tile, zoom) {
-                var imageurl3 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ff000044&chld=FFFFFF|32|h|000000|b|";
-                var imageurl4 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff00&chld=FFFFFF|32|h|000000|b|";
-                var tilegoogle = " (" + tile.x + "," + tile.y + ")";
-                //var tiletms = " (" + tile.x + "," + ((1 << zoom) - tile.y - 1) + ")";
-                //var tilequadtree = " " +TileToQuadKey( tile.x, tile.y, zoom);
-
-                if (tile.x < 0 || tile.y < 0) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
-                if (tile.x >= (1 << zoom) || tile.y >= (1 << zoom)) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
-
-                if ((tile.x % 2 && !(tile.y % 2)) || (!(tile.x % 2) && tile.y % 2)) {
-                    imageurl = imageurl3;
-                } else {
-                    imageurl = imageurl4;
-                }
-                return imageurl + "||||Google: " + tilegoogle + "|Zoom " + zoom + "||||||____________________________";
-            },
-            tileSize: new google.maps.Size(256, 256),
-            opacity: 0.3,
-        });
-
-        map.overlayMapTypes.insertAt(0, tilelayer);
-        //var opt = {minZoom: 8};
-        //map.setOptions(opt);
-
-        var markers = [];
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 39.48074006114467, lng: -101.43078939104066 },
+                zoom: 10
+            });
 
 
-        mapOnClickEvent = function (event) {
+            tilelayer = new google.maps.ImageMapType({
+                getTileUrl: function (tile, zoom) {
+                    var imageurl3 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ff000044&chld=FFFFFF|32|h|000000|b|";
+                    var imageurl4 = "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff00&chld=FFFFFF|32|h|000000|b|";
+                    var tilegoogle = " (" + tile.x + "," + tile.y + ")";
+                    //var tiletms = " (" + tile.x + "," + ((1 << zoom) - tile.y - 1) + ")";
+                    //var tilequadtree = " " +TileToQuadKey( tile.x, tile.y, zoom);
 
+                    if (tile.x < 0 || tile.y < 0) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
+                    if (tile.x >= (1 << zoom) || tile.y >= (1 << zoom)) return "http://chart.apis.google.com/chart?chst=d_text_outline&chs=512x512&chf=bg,s,ffffff99&chld=FFFFFF|32|h|000000|b|";
 
-            var pointLatLng = { lat: event.latLng.lat(), lng: event.latLng.lng()};
-            
-            var url = '/api/customregion/';
-            url += pointLatLng.lat.toString();
-            url += '/';
-            url += pointLatLng.lng.toString();
-
-
-            getAjax(url, function (res) {
-                console.log(res);
-
-                res = JSON.parse(res);
-
-                var marker = new google.maps.Marker({
-                    position: pointLatLng,
-                    map: map,
-                    title: 'Region',
-                    content: pointLatLng
-                });
-
-                google.maps.event.addListener(marker, 'click', function() {
-                    
-                    var markerTitle = res.map(r => r.areaName).join(', ');
-                    var infoWindow = new google.maps.InfoWindow({
-                        content: markerTitle
-                    });
-                    infoWindow.open(map, marker);
-                });
-                
-                for (var i = 0; i < res.length; i++) {
-                    var points = res[i].points;
-
-                    var cordinates = [];
-                    for (var j = 0; j < points.length; j++) {
-                        cordinates.push(new google.maps.LatLng(points[j].lat, points[j].lng));
+                    if ((tile.x % 2 && !(tile.y % 2)) || (!(tile.x % 2) && tile.y % 2)) {
+                        imageurl = imageurl3;
+                    } else {
+                        imageurl = imageurl4;
                     }
-                    // Construct the polygon.
-                    var poly = new google.maps.Polygon({
-                        paths: cordinates,
-                        strokeColor: '#957aff',
-                        strokeOpacity: 0.8,
-                        strokeWeight: 2,
-                        fillColor: '#957aff',
-                        fillOpacity: 0.35
+                    return imageurl + "||||Google: " + tilegoogle + "|Zoom " + zoom + "||||||____________________________";
+                },
+                tileSize: new google.maps.Size(256, 256),
+                opacity: 0.3,
+            });
+
+            map.overlayMapTypes.insertAt(0, tilelayer);
+            //var opt = {minZoom: 8};
+            //map.setOptions(opt);
+
+            var markers = [];
+
+
+            mapOnClickEvent = function (event) {
+
+
+                var pointLatLng = { lat: event.latLng.lat(), lng: event.latLng.lng() };
+
+                var url = '/api/customregion/';
+                url += pointLatLng.lat.toString();
+                url += '/';
+                url += pointLatLng.lng.toString();
+
+
+                getAjax(url, function (res) {
+                    console.log(res);
+
+                    res = JSON.parse(res);
+
+                    var marker = new google.maps.Marker({
+                        position: pointLatLng,
+                        map: map,
+                        title: 'Region',
+                        content: pointLatLng
                     });
-                    poly.setMap(map);
-                    coordinates.push(poly);
-                }
+
+                    google.maps.event.addListener(marker, 'click', function () {
+
+                        var markerTitle = res.map(r => r.areaName).join(', ');
+                        var infoWindow = new google.maps.InfoWindow({
+                            content: markerTitle
+                        });
+                        infoWindow.open(map, marker);
+                    });
+
+                    for (var i = 0; i < res.length; i++) {
+                        var points = polyline.decode(res[i].encodedPolygon).map(x => ({ lat: x[0], lng: x[1] }));
+
+                        var cordinates = [];
+                        for (var j = 0; j < points.length; j++) {
+                            cordinates.push(new google.maps.LatLng(points[j].lat, points[j].lng));
+                        }
+                        // Construct the polygon.
+                        var poly = new google.maps.Polygon({
+                            paths: cordinates,
+                            strokeColor: '#957aff',
+                            strokeOpacity: 0.8,
+                            strokeWeight: 2,
+                            fillColor: '#957aff',
+                            fillOpacity: 0.35
+                        });
+                        poly.setMap(map);
+                        coordinates.push(poly);
+                    }
+                });
+            }
+
+            google.maps.event.addListener(map, 'click', mapOnClickEvent);
+
+        }
+
+        function newMap() {
+            return new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 39.48074006114467, lng: -101.43078939104066 },
+                zoom: 10
             });
         }
 
-        google.maps.event.addListener(map, 'click', mapOnClickEvent);
-
-    }
-
-    function newMap() {
-        return new google.maps.Map(document.getElementById('map'), {
-            center: {lat: 39.48074006114467, lng: -101.43078939104066},
-            zoom: 10
-        });
-    }
-
-    function resetPolygons() {
-        map = newMap();
-        map.overlayMapTypes.insertAt(0, tilelayer);
-        //var opt = {minZoom: 8};
-        //map.setOptions(opt);
-        google.maps.event.addListener(map, 'click', mapOnClickEvent);
-    }
+        function resetPolygons() {
+            map = newMap();
+            map.overlayMapTypes.insertAt(0, tilelayer);
+            //var opt = {minZoom: 8};
+            //map.setOptions(opt);
+            google.maps.event.addListener(map, 'click', mapOnClickEvent);
+        }
 
 
-</script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing&callback=initMap"
-        async defer></script>
-<br><br>
-<input type="button" value="find regions" onclick="window.location.href='drawRegion.html'"/>
-<br><br>
-<button onclick="resetPolygons()">Reset regions</button>
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPwkFRPrwauZKWfskQ9FcyieUWd_-VALM&libraries=drawing&callback=initMap"
+            async defer></script>
+    <br><br>
+    <input type="button" value="find regions" onclick="window.location.href='drawRegion.html'" />
+    <br><br>
+    <button onclick="resetPolygons()">Reset regions</button>
 </body>
 </html>

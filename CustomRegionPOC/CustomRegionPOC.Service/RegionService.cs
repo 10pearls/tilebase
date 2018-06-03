@@ -24,9 +24,9 @@ namespace CustomRegionPOC.Service
 {
     public class RegionService : IRegionService
     {
-        private string areaTableName = "tile_area_v2";
-        private string areaMasterTableName = "tile_area_master_v2";
-        private string propertyTableName = "tile_property_v2";
+        public string areaTableName = "tile_area_v2";
+        public string areaMasterTableName = "tile_area_master_v2";
+        public string propertyTableName = "tile_property_v2";
 
         private AmazonDynamoDBClient dynamoDBClient;
         private string tilebaseURL;
@@ -50,14 +50,14 @@ namespace CustomRegionPOC.Service
         {
             string areaId = Guid.NewGuid().ToString();
             region.AreaID = areaId;
+            region.Points = GooglePoints.Decode(region.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList();
+            region.EncodedPolygon = null;
             AreaMaster areaMaster = new AreaMaster()
             {
                 AreaID = areaId,
                 AreaName = region.AreaName,
-                GUID = areaId,
                 IsPredefine = false,
-                OriginalPolygon = "",
-                Points = region.Points
+                EncodedPolygon = GooglePoints.EncodeBase64(region.Points.Select(x => new CoordinateEntity(Convert.ToDouble(x.Lat), Convert.ToDouble(x.Lng))))
             };
 
             List<Task> tasks = new List<Task>();
@@ -107,7 +107,7 @@ namespace CustomRegionPOC.Service
             });
         }
 
-        public async Task<dynamic> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
+        public async Task<dynamic> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null, string encodedTiles = null)
         {
             List<Listing> listings = new List<Listing>();
 
@@ -121,8 +121,35 @@ namespace CustomRegionPOC.Service
                 boundingBox.Add(new PointF((float)Convert.ToDouble(south), (float)Convert.ToDouble(east)));
             }
 
+
+
             DateTime startTimeLambda = DateTime.Now;
-            List<Tile> tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true, boundingBox);
+            List<Tile> tiles = new List<Tile>();
+            if (!string.IsNullOrEmpty(encodedTiles))
+            {
+                if (!string.IsNullOrEmpty(area.EncodedPolygon))
+                {
+                    area.Points = GooglePoints.DecodeBase64(area.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList();
+                }
+
+                if (boundingBox == null || boundingBox.Count() == 0)
+                {
+                    tiles = GooglePoints.DecodeBase64(encodedTiles).Select(x => new Tile() { Row = (int)x.Latitude, Column = (int)x.Longitude }).ToList();
+                }
+                else
+                {
+                    tiles = this.GetCoordinateTile(new List<PointF>(), true, boundingBox, 14, encodedTiles);
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(area.EncodedPolygon))
+                {
+                    area.Points = GooglePoints.Decode(area.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList();
+                }
+
+                tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true, boundingBox);
+            }
             DateTime endTimeLambda = DateTime.Now;
 
             //if (tiles == null || tiles.Count() == 0)
@@ -210,10 +237,22 @@ namespace CustomRegionPOC.Service
             var result = dynamoDBClient.QueryAsync(queryRequest).Result;
             listingArea = AreaMaster.ConvertToEntity(result.Items);
 
+
             if (listingArea.Count() > 0)
             {
-                dynamic output = await GetListing(new Area() { Points = listingArea.First().Points }, north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent);
+                dynamic output = await GetListing(new Area()
+                {
+                    EncodedPolygon = listingArea.First().EncodedPolygon,
+                    Points = GooglePoints.DecodeBase64(listingArea.First().EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList()
+                }, north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent, listingArea.First().EncodedTiles);
 
+
+                foreach (var area in listingArea)
+                {
+                    area.EncodedPolygon = ASCIIEncoding.ASCII.GetString(Convert.FromBase64String(area.EncodedPolygon));
+                    area.EncodedTiles = null;
+
+                }
                 return new
                 {
                     output.PropertyCount,
@@ -305,7 +344,7 @@ namespace CustomRegionPOC.Service
             });
         }
 
-        public List<Tile> GetCoordinateTile(List<PointF> points, bool withRasterize, List<PointF> boundingBox = null, int zoomlevel = 14)
+        public List<Tile> GetCoordinateTile(List<PointF> points, bool withRasterize, List<PointF> boundingBox = null, int zoomlevel = 14, string encodedTiles = null)
         {
             List<Tile> tilesCoordinates = new List<Tile>();
 
@@ -324,43 +363,44 @@ namespace CustomRegionPOC.Service
                 List<Tile> tiles = new List<Tile>();
                 object lockObj = new object();
 
-                Parallel.ForEach(tilesCoordinates.ChunkBy(600), tilesCoordinate =>
+                if (withRasterize)
                 {
-                    string postData = JSONHelper.GetString(tilesCoordinate.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.Lat), Lng = Convert.ToDecimal(x.Lng) }).ToList());
-                    if (withRasterize)
+                    string postData = @"{""zoom"": " + zoomlevel + @",";
+                    if (!string.IsNullOrEmpty(encodedTiles))
                     {
-                        postData = @"{""zoom"": " + zoomlevel + @", ""points"": " + postData;
+                        postData += postData = @"""encodedTile"": """ + encodedTiles + @"""";
+                    }
+                    else if (points != null && points.Count() > 0)
+                    {
+                        string encodedString = GooglePoints.EncodeBase64(points.Select(x => new CoordinateEntity(x.X, x.Y)));
+                        postData += @"""encodedPolygon"": """ + encodedString + @"""";
+                    }
 
-                        if (boundingBox != null && boundingBox.Count() > 0)
+                    if (boundingBox != null && boundingBox.Count() > 0)
+                    {
+                        string boundingBoxPostData = JSONHelper.GetString(boundingBox.Select(x => new LocationPoint { Lat = Convert.ToDecimal(x.X), Lng = Convert.ToDecimal(x.Y) }).ToList());
+                        postData += @",""boundingBox"": " + boundingBoxPostData;
+                    }
+
+                    postData += "}";
+
+                    string responseFromServer = this.PostData(tilebaseURLWithRasterize, postData);
+
+                    tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
+                }
+                else
+                {
+                    Parallel.ForEach(tilesCoordinates.ChunkBy(200), tilesCoordinate =>
+                    {
+                        string postData = JSONHelper.GetString(tilesCoordinate);
+                        string responseFromServer = this.PostData(tilebaseURL, postData);
+
+                        lock (lockObj)
                         {
-                            string boundingBoxPostData = JSONHelper.GetString(boundingBox.Select(x => new LocationPoint { Lat = Convert.ToDecimal(x.X), Lng = Convert.ToDecimal(x.Y) }).ToList());
-                            postData += @",""boundingBox"": " + boundingBoxPostData;
+                            tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
                         }
-
-                        postData += "}";
-                    }
-
-                    WebRequest request = WebRequest.Create(withRasterize ? tilebaseURLWithRasterize : tilebaseURL);
-                    request.Method = "POST";
-                    byte[] byteArray = Encoding.UTF8.GetBytes(postData);
-                    request.ContentType = "application/x-www-form-urlencoded";
-                    request.ContentLength = byteArray.Length;
-                    Stream dataStream = request.GetRequestStream();
-                    dataStream.Write(byteArray, 0, byteArray.Length);
-                    dataStream.Close();
-                    WebResponse response = request.GetResponse();
-                    dataStream = response.GetResponseStream();
-                    StreamReader reader = new StreamReader(dataStream);
-                    string responseFromServer = reader.ReadToEnd();
-                    reader.Close();
-                    dataStream.Close();
-                    response.Close();
-
-                    lock (lockObj)
-                    {
-                        tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
-                    }
-                });
+                    });
+                }
 
                 return tiles;
 
@@ -369,6 +409,27 @@ namespace CustomRegionPOC.Service
             {
                 throw ex;
             }
+        }
+
+        public string PostData(string url, string postData)
+        {
+            WebRequest request = WebRequest.Create(url);
+            request.Method = "POST";
+            byte[] byteArray = Encoding.UTF8.GetBytes(postData);
+            request.ContentType = "application/x-www-form-urlencoded";
+            request.ContentLength = byteArray.Length;
+            Stream dataStream = request.GetRequestStream();
+            dataStream.Write(byteArray, 0, byteArray.Length);
+            dataStream.Close();
+            WebResponse response = request.GetResponse();
+            dataStream = response.GetResponseStream();
+            StreamReader reader = new StreamReader(dataStream);
+            string responseFromServer = reader.ReadToEnd();
+            reader.Close();
+            dataStream.Close();
+            response.Close();
+
+            return responseFromServer;
         }
 
         public string GetTileStr(int row, int column)
@@ -465,6 +526,7 @@ namespace CustomRegionPOC.Service
                 QueryRequest queryRequest = new QueryRequest()
                 {
                     TableName = areaMasterTableName,
+                    IndexName = "AreaPolygonIndex",
                     KeyConditions = keyConditions,
                 };
 
@@ -560,8 +622,9 @@ namespace CustomRegionPOC.Service
 
             Parallel.ForEach(areas, area =>
             {
-                if (isPointInPolygon(area.Points, lat, lng))
+                if (isPointInPolygon(GooglePoints.DecodeBase64(area.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList(), lat, lng))
                 {
+                    area.EncodedPolygon = ASCIIEncoding.ASCII.GetString(Convert.FromBase64String(area.EncodedPolygon));
                     filteredAreas.Add(area);
                 }
             });
