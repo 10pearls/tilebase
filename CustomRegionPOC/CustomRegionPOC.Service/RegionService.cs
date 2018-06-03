@@ -24,9 +24,9 @@ namespace CustomRegionPOC.Service
 {
     public class RegionService : IRegionService
     {
-        private string areaTableName = "tile_area_v2";
-        private string areaMasterTableName = "tile_area_master_v2";
-        private string propertyTableName = "tile_property_v2";
+        public string areaTableName = "tile_area_v2";
+        public string areaMasterTableName = "tile_area_master_v2";
+        public string propertyTableName = "tile_property_v2";
 
         private AmazonDynamoDBClient dynamoDBClient;
         private string tilebaseURL;
@@ -50,14 +50,14 @@ namespace CustomRegionPOC.Service
         {
             string areaId = Guid.NewGuid().ToString();
             region.AreaID = areaId;
+            region.Points = GooglePoints.Decode(region.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList();
+            region.EncodedPolygon = null;
             AreaMaster areaMaster = new AreaMaster()
             {
                 AreaID = areaId,
                 AreaName = region.AreaName,
-                GUID = areaId,
                 IsPredefine = false,
-                OriginalPolygon = "",
-                Points = region.Points
+                EncodedPolygon = GooglePoints.EncodeBase64(region.Points.Select(x => new CoordinateEntity(Convert.ToDouble(x.Lat), Convert.ToDouble(x.Lng))))
             };
 
             List<Task> tasks = new List<Task>();
@@ -107,22 +107,58 @@ namespace CustomRegionPOC.Service
             });
         }
 
-        public async Task<dynamic> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
+        public async Task<dynamic> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null, string encodedTiles = null)
         {
             List<Listing> listings = new List<Listing>();
 
-
-            DateTime startTimeLambda = DateTime.Now;
-            List<Tile> tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
-            DateTime endTimeLambda = DateTime.Now;
-
-            if (tiles == null || tiles.Count() == 0)
+            List<PointF> boundingBox = null;
+            if (!string.IsNullOrEmpty(north) && !string.IsNullOrEmpty(east) && !string.IsNullOrEmpty(south) && !string.IsNullOrEmpty(west))
             {
-                throw new Exception("Unable To Calculate Tiles");
+                boundingBox = new List<PointF>();
+                boundingBox.Add(new PointF((float)Convert.ToDouble(north), (float)Convert.ToDouble(east)));
+                boundingBox.Add(new PointF((float)Convert.ToDouble(north), (float)Convert.ToDouble(west)));
+                boundingBox.Add(new PointF((float)Convert.ToDouble(south), (float)Convert.ToDouble(west)));
+                boundingBox.Add(new PointF((float)Convert.ToDouble(south), (float)Convert.ToDouble(east)));
             }
 
+
+
+            DateTime startTimeLambda = DateTime.Now;
+            List<Tile> tiles = new List<Tile>();
+            if (!string.IsNullOrEmpty(encodedTiles))
+            {
+                if (!string.IsNullOrEmpty(area.EncodedPolygon))
+                {
+                    area.Points = GooglePoints.DecodeBase64(area.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList();
+                }
+
+                if (boundingBox == null || boundingBox.Count() == 0)
+                {
+                    tiles = GooglePoints.DecodeBase64(encodedTiles).Select(x => new Tile() { Row = (int)x.Latitude, Column = (int)x.Longitude }).ToList();
+                }
+                else
+                {
+                    tiles = this.GetCoordinateTile(new List<PointF>(), true, boundingBox, 14, encodedTiles);
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(area.EncodedPolygon))
+                {
+                    area.Points = GooglePoints.Decode(area.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList();
+                }
+
+                tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true, boundingBox);
+            }
+            DateTime endTimeLambda = DateTime.Now;
+
+            //if (tiles == null || tiles.Count() == 0)
+            //{
+            //    throw new Exception("Unable To Calculate Tiles");
+            //}
+
             DateTime startDate = DateTime.Now;
-            dynamic listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
+            dynamic listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
             DateTime endDate = DateTime.Now;
 
             foreach (var item in listing.Properties)
@@ -130,12 +166,16 @@ namespace CustomRegionPOC.Service
                 Tile currentTile = tiles.FirstOrDefault(x => GetTileStr((int)x.Row, (int)x.Column) == item.Tile);
                 if (!currentTile.IsPartialTile || (currentTile.IsPartialTile && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude)))
                 {
-                    listings.Add(new Listing
+                    if ((boundingBox == null || boundingBox.Count() == 0) ||
+                        (boundingBox != null && boundingBox.Count() > 0 && this.isPointInPolygon(boundingBox.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.X), Lng = Convert.ToDecimal(x.Y) }).ToList(), item.Latitude, item.Longitude)))
                     {
-                        Name = item.PropertyAddressName,
-                        Lat = item.Latitude,
-                        Lng = item.Longitude
-                    });
+                        listings.Add(new Listing
+                        {
+                            Name = item.PropertyAddressName,
+                            Lat = item.Latitude,
+                            Lng = item.Longitude
+                        });
+                    }
                 }
             };
 
@@ -178,101 +218,56 @@ namespace CustomRegionPOC.Service
 
         public async Task<dynamic> GetArea(string id, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
-            List<Task> tasks = new List<Task>();
-
             List<AreaMaster> listingArea = new List<AreaMaster>();
             List<List<Property>> areaProperties = new List<List<Property>>();
 
-            tasks.Add(new TaskFactory().StartNew(() =>
-            {
-                Dictionary<string, Condition> areaKeyConditions = new Dictionary<string, Condition>();
-                Dictionary<string, Condition> areaQueryFilter = new Dictionary<string, Condition>();
-                areaKeyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
-                areaQueryFilter.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
+            Dictionary<string, Condition> areaKeyConditions = new Dictionary<string, Condition>();
+            Dictionary<string, Condition> areaQueryFilter = new Dictionary<string, Condition>();
+            areaKeyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
+            areaQueryFilter.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
 
-                QueryRequest queryRequest = new QueryRequest()
-                {
-                    TableName = areaMasterTableName,
-                    ReturnConsumedCapacity = "TOTAL",
-                    KeyConditions = areaKeyConditions,
-                    QueryFilter = areaQueryFilter
-                };
-
-                var result = dynamoDBClient.QueryAsync(queryRequest).Result;
-                listingArea = AreaMaster.ConvertToEntity(result.Items);
-            }));
-
-            DateTime startDate = DateTime.Now;
-            Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
-
-            if (!string.IsNullOrEmpty(beds))
+            QueryRequest queryRequest = new QueryRequest()
             {
-                queryFilter.Add("Beds", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = beds } } });
-            }
-            if (!string.IsNullOrEmpty(bathsFull))
-            {
-                queryFilter.Add("BathsFull", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsFull } } });
-            }
-            if (!string.IsNullOrEmpty(bathsHalf))
-            {
-                queryFilter.Add("BathsHalf", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsHalf } } });
-            }
-            if (!string.IsNullOrEmpty(propertyAddressId))
-            {
-                queryFilter.Add("PropertyAddressID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = propertyAddressId } } });
-            }
-            if (!string.IsNullOrEmpty(averageValue))
-            {
-                queryFilter.Add("AverageValue", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageValue } } });
-            }
-            if (!string.IsNullOrEmpty(averageRent))
-            {
-                queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
-            }
-
-            if (!string.IsNullOrEmpty(south) && !string.IsNullOrEmpty(north) && !string.IsNullOrEmpty(east) && !string.IsNullOrEmpty(west))
-            {
-                queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
-                queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
-            }
-
-
-            //Parallel.For(0, 11, segment =>
-            //{
-            //    string innerId = id + "-" + segment;
-            Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
-            keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
-            keyConditions.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
-
-            var request = new QueryRequest
-            {
-                TableName = propertyTableName,
-                IndexName = "AreaIDIndex",
+                TableName = areaMasterTableName,
                 ReturnConsumedCapacity = "TOTAL",
-                KeyConditions = keyConditions,
-                QueryFilter = queryFilter,
-                AttributesToGet = new List<string> { "Latitude", "Longitude" },
-                Select = "SPECIFIC_ATTRIBUTES"
-
+                KeyConditions = areaKeyConditions,
+                QueryFilter = areaQueryFilter
             };
-            var response = dynamoDBClient.QueryAsync(request).Result;
 
-            areaProperties.Add(Property.ConvertToEntity(response.Items));
-            //});
+            var result = dynamoDBClient.QueryAsync(queryRequest).Result;
+            listingArea = AreaMaster.ConvertToEntity(result.Items);
 
-            Task.WaitAll(tasks.ToArray());
 
-            DateTime endDate = DateTime.Now;
-
-            return new
+            if (listingArea.Count() > 0)
             {
-                Area = listingArea,
-                PropertyCount = areaProperties.SelectMany(x => x).ToList().Count(),
-                Properties = areaProperties.SelectMany(x => x).Select(x => new { Latitude = x.Latitude, Longitude = x.Longitude }).ToList(),
-                ScannedCount = response.ScannedCount,
-                ReturnConsumedCapacity = response.ConsumedCapacity,
-                TotalQueryExecutionTime = (endDate - startDate).TotalMilliseconds
-            };
+                dynamic output = await GetListing(new Area()
+                {
+                    EncodedPolygon = listingArea.First().EncodedPolygon,
+                    Points = GooglePoints.DecodeBase64(listingArea.First().EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList()
+                }, north, east, south, west, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent, listingArea.First().EncodedTiles);
+
+
+                foreach (var area in listingArea)
+                {
+                    area.EncodedPolygon = ASCIIEncoding.ASCII.GetString(Convert.FromBase64String(area.EncodedPolygon));
+                    area.EncodedTiles = null;
+
+                }
+                return new
+                {
+                    output.PropertyCount,
+                    output.ScanCount,
+                    output.ConsumedCapacityCount,
+                    output.Properties,
+                    output.TotalQueryExecutionTime,
+                    output.TotalLambdaExecutionTime,
+                    Area = listingArea
+                };
+            }
+            else
+            {
+                return null;
+            }
         }
 
         #region Public Function
@@ -349,7 +344,7 @@ namespace CustomRegionPOC.Service
             });
         }
 
-        public List<Tile> GetCoordinateTile(List<PointF> points, bool withRasterize, int zoomlevel = 14)
+        public List<Tile> GetCoordinateTile(List<PointF> points, bool withRasterize, List<PointF> boundingBox = null, int zoomlevel = 14, string encodedTiles = null)
         {
             List<Tile> tilesCoordinates = new List<Tile>();
 
@@ -368,35 +363,44 @@ namespace CustomRegionPOC.Service
                 List<Tile> tiles = new List<Tile>();
                 object lockObj = new object();
 
-                Parallel.ForEach(tilesCoordinates.ChunkBy(200), tilesCoordinate =>
+                if (withRasterize)
                 {
-                    string postData = JSONHelper.GetString(tilesCoordinate);
-                    if (withRasterize)
+                    string postData = @"{""zoom"": " + zoomlevel + @",";
+                    if (!string.IsNullOrEmpty(encodedTiles))
                     {
-                        postData = @"{""zoom"": " + zoomlevel + @", ""points"": " + postData + "}";
+                        postData += postData = @"""encodedTile"": """ + encodedTiles + @"""";
+                    }
+                    else if (points != null && points.Count() > 0)
+                    {
+                        string encodedString = GooglePoints.EncodeBase64(points.Select(x => new CoordinateEntity(x.X, x.Y)));
+                        postData += @"""encodedPolygon"": """ + encodedString + @"""";
                     }
 
-                    WebRequest request = WebRequest.Create(withRasterize ? tilebaseURLWithRasterize : tilebaseURL);
-                    request.Method = "POST";
-                    byte[] byteArray = Encoding.UTF8.GetBytes(postData);
-                    request.ContentType = "application/x-www-form-urlencoded";
-                    request.ContentLength = byteArray.Length;
-                    Stream dataStream = request.GetRequestStream();
-                    dataStream.Write(byteArray, 0, byteArray.Length);
-                    dataStream.Close();
-                    WebResponse response = request.GetResponse();
-                    dataStream = response.GetResponseStream();
-                    StreamReader reader = new StreamReader(dataStream);
-                    string responseFromServer = reader.ReadToEnd();
-                    reader.Close();
-                    dataStream.Close();
-                    response.Close();
-
-                    lock (lockObj)
+                    if (boundingBox != null && boundingBox.Count() > 0)
                     {
-                        tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
+                        string boundingBoxPostData = JSONHelper.GetString(boundingBox.Select(x => new LocationPoint { Lat = Convert.ToDecimal(x.X), Lng = Convert.ToDecimal(x.Y) }).ToList());
+                        postData += @",""boundingBox"": " + boundingBoxPostData;
                     }
-                });
+
+                    postData += "}";
+
+                    string responseFromServer = this.PostData(tilebaseURLWithRasterize, postData);
+
+                    tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
+                }
+                else
+                {
+                    Parallel.ForEach(tilesCoordinates.ChunkBy(200), tilesCoordinate =>
+                    {
+                        string postData = JSONHelper.GetString(tilesCoordinate);
+                        string responseFromServer = this.PostData(tilebaseURL, postData);
+
+                        lock (lockObj)
+                        {
+                            tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
+                        }
+                    });
+                }
 
                 return tiles;
 
@@ -405,6 +409,27 @@ namespace CustomRegionPOC.Service
             {
                 throw ex;
             }
+        }
+
+        public string PostData(string url, string postData)
+        {
+            WebRequest request = WebRequest.Create(url);
+            request.Method = "POST";
+            byte[] byteArray = Encoding.UTF8.GetBytes(postData);
+            request.ContentType = "application/x-www-form-urlencoded";
+            request.ContentLength = byteArray.Length;
+            Stream dataStream = request.GetRequestStream();
+            dataStream.Write(byteArray, 0, byteArray.Length);
+            dataStream.Close();
+            WebResponse response = request.GetResponse();
+            dataStream = response.GetResponseStream();
+            StreamReader reader = new StreamReader(dataStream);
+            string responseFromServer = reader.ReadToEnd();
+            reader.Close();
+            dataStream.Close();
+            response.Close();
+
+            return responseFromServer;
         }
 
         public string GetTileStr(int row, int column)
@@ -501,6 +526,7 @@ namespace CustomRegionPOC.Service
                 QueryRequest queryRequest = new QueryRequest()
                 {
                     TableName = areaMasterTableName,
+                    IndexName = "AreaPolygonIndex",
                     KeyConditions = keyConditions,
                 };
 
@@ -511,7 +537,7 @@ namespace CustomRegionPOC.Service
             return allAreasMaster.SelectMany(x => x).ToList();
         }
 
-        private async Task<dynamic> getRegionByProperty(List<Point> points, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
+        private async Task<dynamic> getRegionByProperty(List<Point> points, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
             int TotalRecordCount = 0;
             int ScanCount = 0;
@@ -551,11 +577,11 @@ namespace CustomRegionPOC.Service
                         queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
                     }
 
-                    if (!string.IsNullOrEmpty(south) && !string.IsNullOrEmpty(north) && !string.IsNullOrEmpty(east) && !string.IsNullOrEmpty(west))
-                    {
-                        queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
-                        queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
-                    }
+                    //if (!string.IsNullOrEmpty(south) && !string.IsNullOrEmpty(north) && !string.IsNullOrEmpty(east) && !string.IsNullOrEmpty(west))
+                    //{
+                    //    queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
+                    //    queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
+                    //}
 
                     var request = new QueryRequest
                     {
@@ -596,8 +622,9 @@ namespace CustomRegionPOC.Service
 
             Parallel.ForEach(areas, area =>
             {
-                if (isPointInPolygon(area.Points, lat, lng))
+                if (isPointInPolygon(GooglePoints.DecodeBase64(area.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList(), lat, lng))
                 {
+                    area.EncodedPolygon = ASCIIEncoding.ASCII.GetString(Convert.FromBase64String(area.EncodedPolygon));
                     filteredAreas.Add(area);
                 }
             });

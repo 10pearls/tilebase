@@ -13,16 +13,13 @@ namespace CustomRegionPOC.Common.Model
     public class AreaMaster : ICloneable
     {
         //area
-
-        public string GUID { get; set; }
-
         public string AreaID { get; set; }
 
         public string AreaName { get; set; }
 
-        public List<LocationPoint> Points { get; set; }
+        public string EncodedPolygon { get; set; }
 
-        public string OriginalPolygon { get; set; }
+        public string EncodedTiles { get; set; }
 
         public bool IsPredefine { get; set; }
 
@@ -38,15 +35,15 @@ namespace CustomRegionPOC.Common.Model
 
             foreach (string attr in item.Keys)
             {
-                if (attr == "Points")
-                {
-                    tempObj.Points = item[attr].L.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.M["Lat"].N), Lng = Convert.ToDecimal(x.M["Lng"].N) }).ToList();
-                }
-                else
-                {
-                    PropertyInfo prop = type.GetProperty(attr);
-                    prop.SetValue(tempObj, item[attr].S, null);
-                }
+                //if (attr == "Points")
+                //{
+                //    tempObj.Points = item[attr].L.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.M["Lat"].N), Lng = Convert.ToDecimal(x.M["Lng"].N) }).ToList();
+                //}
+                //else
+                //{
+                PropertyInfo prop = type.GetProperty(attr);
+                prop.SetValue(tempObj, item[attr].S, null);
+                //}
             }
 
             return tempObj;

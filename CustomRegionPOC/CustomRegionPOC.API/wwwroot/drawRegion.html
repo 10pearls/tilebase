@@ -16,6 +16,7 @@
         }
     </style>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="polyline.js"></script>
 </head>
 <body>
     <div id="map"></div>
@@ -96,7 +97,6 @@
             });
         }
 
-
         function TileToQuadKey(x, y, zoom) {
             var quad = "";
             for (var i = zoom; i > 0; i--) {
@@ -142,7 +142,8 @@
             for (var i = 0; i < locations.length; i++) {
                 var lat = locations[i].lat();
                 var lng = locations[i].lng();
-                coordinates.push({ lat: lat, lng: lng });
+                // coordinates.push({ lat: lat, lng: lng });
+                coordinates.push([lat, lng]);
             }
 
         }
@@ -219,10 +220,10 @@
             // Add an event listener on the rectangle.
             rectangle.addListener('bounds_changed', showNewRect);
 
-                $("#propertyCount").text("");
-                $("#scanCount").text("");
-                $("#totalLambdaExecutionTime").text("");
-                $("#totalQueryExecutionTime").text("");
+            $("#propertyCount").text("");
+            $("#scanCount").text("");
+            $("#totalLambdaExecutionTime").text("");
+            $("#totalQueryExecutionTime").text("");
         }
 
         function getCustomRegionProperties(boundingBox, coordinates, areaName, beds, bathsFull, bathsHalf) {
@@ -233,7 +234,7 @@
 
             var obj = {
                 areaName: areaName,
-                points: coordinates
+                encodedPolygon: polyline.encode(coordinates)
             }
 
             var boundingBoxCoordinatesQueryParams = `north=${boundingBoxCoordinates.north}`;
@@ -293,7 +294,7 @@
 
             var obj = {
                 areaName: areaName,
-                points: coordinates,
+                encodedPolygon: polyline.encode(coordinates),
                 beds: beds,
                 bathsFull: bathsFull,
                 bathsHalf: bathsHalf
@@ -312,7 +313,6 @@
                 }
 
                 for (var i = 0; i < res.properties.length; i++) {
-
                     var markerLatLng = { lat: res.properties[i].lat, lng: res.properties[i].lng };
                     var marker = new google.maps.Marker({
                         position: markerLatLng,
