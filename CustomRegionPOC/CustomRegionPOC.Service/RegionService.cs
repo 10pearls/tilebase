@@ -28,6 +28,7 @@ namespace CustomRegionPOC.Service
         public string areaMasterTableName = "tile_area_master_v2";
         public string propertyTableName = "tile_property_v2";
 
+        private BasicAWSCredentials credentials;
         private AmazonDynamoDBClient dynamoDBClient;
         private string tilebaseURL;
         private string tilebaseURLWithRasterize;
@@ -35,7 +36,7 @@ namespace CustomRegionPOC.Service
 
         public RegionService(IConfiguration configuration)
         {
-            var credentials = new BasicAWSCredentials(configuration["AWS:AccessKey"], configuration["AWS:SecretKey"]);
+            this.credentials = new BasicAWSCredentials(configuration["AWS:AccessKey"], configuration["AWS:SecretKey"]);
             this.dynamoDBClient = new AmazonDynamoDBClient(credentials, RegionEndpoint.USEast1);
 
             CreateTempTable("tile_listing_region_v2", null, null, null).Wait();
@@ -52,12 +53,15 @@ namespace CustomRegionPOC.Service
             region.AreaID = areaId;
             region.Points = GooglePoints.Decode(region.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList();
             region.EncodedPolygon = null;
+            List<Tile> tiles = this.GetCoordinateTile(region.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
+
             AreaMaster areaMaster = new AreaMaster()
             {
                 AreaID = areaId,
                 AreaName = region.AreaName,
                 IsPredefine = false,
-                EncodedPolygon = GooglePoints.EncodeBase64(region.Points.Select(x => new CoordinateEntity(Convert.ToDouble(x.Lat), Convert.ToDouble(x.Lng))))
+                EncodedPolygon = GooglePoints.EncodeBase64(region.Points.Select(x => new CoordinateEntity(Convert.ToDouble(x.Lat), Convert.ToDouble(x.Lng)))),
+                EncodedTiles = GooglePoints.EncodeBase64(tiles.Select(x => new CoordinateEntity(x.Row, x.Column)))
             };
 
             List<Task> tasks = new List<Task>();
@@ -66,7 +70,8 @@ namespace CustomRegionPOC.Service
                 this.context.SaveAsync<AreaMaster>(areaMaster).Wait();
             }));
 
-            List<Area> areas = this.transformRegion(region, this.GetCoordinateTile(region.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true));
+
+            List<Area> areas = this.transformRegion(region, tiles);
             SaveAreas(areas);
 
             Task.WaitAll(tasks.ToArray());
@@ -120,8 +125,6 @@ namespace CustomRegionPOC.Service
                 boundingBox.Add(new PointF((float)Convert.ToDouble(south), (float)Convert.ToDouble(west)));
                 boundingBox.Add(new PointF((float)Convert.ToDouble(south), (float)Convert.ToDouble(east)));
             }
-
-
 
             DateTime startTimeLambda = DateTime.Now;
             List<Tile> tiles = new List<Tile>();
@@ -200,7 +203,7 @@ namespace CustomRegionPOC.Service
         public async Task<List<AreaMaster>> GetArea()
         {
             Dictionary<string, Condition> queryCondition = new Dictionary<string, Condition>();
-            queryCondition.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
+            //queryCondition.Add("IsPredefine", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = "1" } } });
 
             var request = new ScanRequest
             {
@@ -545,61 +548,86 @@ namespace CustomRegionPOC.Service
             List<List<Property>> property = new List<List<Property>>();
             try
             {
-                Parallel.ForEach(points, obj =>
+                Parallel.ForEach(points.ChunkBy(10), chunkPoints =>
                 {
-                    Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
-                    keyConditions.Add("Tile", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(GetTileStr(obj.X, obj.Y)) } });
+                    var cts = new CancellationTokenSource();
+                    var po = new ParallelOptions();
+                    po.CancellationToken = cts.Token;
+                    AmazonDynamoDBClient client = new AmazonDynamoDBClient(this.credentials, RegionEndpoint.USEast1);
 
-                    Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
+                    List<string> processedTiles = new List<string>();
 
-                    if (!string.IsNullOrEmpty(beds))
+                    Parallel.ForEach(chunkPoints, po, obj =>
                     {
-                        queryFilter.Add("Beds", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = beds } } });
-                    }
-                    if (!string.IsNullOrEmpty(bathsFull))
-                    {
-                        queryFilter.Add("BathsFull", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsFull } } });
-                    }
-                    if (!string.IsNullOrEmpty(bathsHalf))
-                    {
-                        queryFilter.Add("BathsHalf", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsHalf } } });
-                    }
-                    if (!string.IsNullOrEmpty(propertyAddressId))
-                    {
-                        queryFilter.Add("PropertyAddressID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = propertyAddressId } } });
-                    }
-                    if (!string.IsNullOrEmpty(averageValue))
-                    {
-                        queryFilter.Add("AverageValue", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageValue } } });
-                    }
-                    if (!string.IsNullOrEmpty(averageRent))
-                    {
-                        queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
-                    }
+                        string currentTile = GetTileStr(obj.X, obj.Y);
 
-                    //if (!string.IsNullOrEmpty(south) && !string.IsNullOrEmpty(north) && !string.IsNullOrEmpty(east) && !string.IsNullOrEmpty(west))
-                    //{
-                    //    queryFilter.Add("Latitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = south }, new AttributeValue() { N = north } } });
-                    //    queryFilter.Add("Longitude", new Condition() { ComparisonOperator = "Between", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { N = west }, new AttributeValue() { N = east } } });
-                    //}
+                        Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+                        keyConditions.Add("Tile", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(currentTile) } });
 
-                    var request = new QueryRequest
-                    {
-                        TableName = propertyTableName,
-                        ReturnConsumedCapacity = "TOTAL",
-                        KeyConditions = keyConditions,
-                        QueryFilter = queryFilter,
-                        AttributesToGet = new List<string> { "Latitude", "Longitude", "Tile", "PropertyAddressName" },
-                        Select = "SPECIFIC_ATTRIBUTES"
+                        Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
 
-                    };
-                    QueryResponse response = dynamoDBClient.QueryAsync(request).Result;
+                        if (!string.IsNullOrEmpty(beds))
+                        {
+                            queryFilter.Add("Beds", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = beds } } });
+                        }
+                        if (!string.IsNullOrEmpty(bathsFull))
+                        {
+                            queryFilter.Add("BathsFull", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsFull } } });
+                        }
+                        if (!string.IsNullOrEmpty(bathsHalf))
+                        {
+                            queryFilter.Add("BathsHalf", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsHalf } } });
+                        }
+                        if (!string.IsNullOrEmpty(propertyAddressId))
+                        {
+                            queryFilter.Add("PropertyAddressID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = propertyAddressId } } });
+                        }
+                        if (!string.IsNullOrEmpty(averageValue))
+                        {
+                            queryFilter.Add("AverageValue", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageValue } } });
+                        }
+                        if (!string.IsNullOrEmpty(averageRent))
+                        {
+                            queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
+                        }
 
-                    TotalRecordCount += response.Count;
-                    ScanCount += response.ScannedCount;
-                    ConsumedCapacityCount += response.ConsumedCapacity.CapacityUnits;
+                        var request = new QueryRequest
+                        {
+                            TableName = propertyTableName,
+                            ReturnConsumedCapacity = "TOTAL",
+                            KeyConditions = keyConditions,
+                            QueryFilter = queryFilter,
+                            AttributesToGet = new List<string> { "Latitude", "Longitude", "Tile", "PropertyAddressName" },
+                            Select = "SPECIFIC_ATTRIBUTES"
 
-                    property.Add(Property.ConvertToEntity(response.Items));
+                        };
+                        try
+                        {
+                            QueryResponse response = client.QueryAsync(request).Result;
+
+                            TotalRecordCount += response.Count;
+                            ScanCount += response.ScannedCount;
+                            ConsumedCapacityCount += response.ConsumedCapacity.CapacityUnits;
+
+                            property.Add(Property.ConvertToEntity(response.Items));
+                            processedTiles.Add(currentTile);
+                        }
+                        catch (Exception ex)
+                        {
+                            cts.Cancel();
+                            var newPoints = chunkPoints.Where(x => GetTileStr(x.X, x.Y) != currentTile).Where(x => !processedTiles.Any(y => y == GetTileStr(x.X, x.Y))).ToList();
+
+                            dynamic responseObj = this.getRegionByProperty(newPoints, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
+                            foreach (dynamic tempObj in responseObj.Properties)
+                            {
+                                property.Add(tempObj);
+                            }
+
+                            TotalRecordCount += responseObj.TotalRecordCount;
+                            ScanCount += responseObj.ScanCount;
+                            ConsumedCapacityCount += responseObj.ConsumedCapacityCount;
+                        }
+                    });
                 });
             }
             catch (Exception ex)

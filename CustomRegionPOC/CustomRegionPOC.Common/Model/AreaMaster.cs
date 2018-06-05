@@ -35,15 +35,15 @@ namespace CustomRegionPOC.Common.Model
 
             foreach (string attr in item.Keys)
             {
-                //if (attr == "Points")
-                //{
-                //    tempObj.Points = item[attr].L.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.M["Lat"].N), Lng = Convert.ToDecimal(x.M["Lng"].N) }).ToList();
-                //}
-                //else
-                //{
-                PropertyInfo prop = type.GetProperty(attr);
-                prop.SetValue(tempObj, item[attr].S, null);
-                //}
+                if (attr == "IsPredefine")
+                {
+                    tempObj.IsPredefine = item[attr].N == "1" ? true : false;
+                }
+                else
+                {
+                    PropertyInfo prop = type.GetProperty(attr);
+                    prop.SetValue(tempObj, item[attr].S, null);
+                }
             }
 
             return tempObj;
