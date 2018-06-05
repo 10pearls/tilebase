@@ -166,20 +166,24 @@ namespace CustomRegionPOC.Service
 
             foreach (var item in listing.Properties)
             {
-                Tile currentTile = tiles.FirstOrDefault(x => GetTileStr((int)x.Row, (int)x.Column) == item.Tile);
-                if (!currentTile.IsPartialTile || (currentTile.IsPartialTile && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude)))
+                try
                 {
-                    if ((boundingBox == null || boundingBox.Count() == 0) ||
-                        (boundingBox != null && boundingBox.Count() > 0 && this.isPointInPolygon(boundingBox.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.X), Lng = Convert.ToDecimal(x.Y) }).ToList(), item.Latitude, item.Longitude)))
+                    Tile currentTile = tiles.FirstOrDefault(x => GetTileStr((int)x.Row, (int)x.Column) == item.Tile);
+                    if (!currentTile.IsPartialTile || (currentTile.IsPartialTile && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude)))
                     {
-                        listings.Add(new Listing
+                        if ((boundingBox == null || boundingBox.Count() == 0) ||
+                            (boundingBox != null && boundingBox.Count() > 0 && this.isPointInPolygon(boundingBox.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.X), Lng = Convert.ToDecimal(x.Y) }).ToList(), item.Latitude, item.Longitude)))
                         {
-                            Name = item.PropertyAddressName,
-                            Lat = item.Latitude,
-                            Lng = item.Longitude
-                        });
+                            listings.Add(new Listing
+                            {
+                                Name = item.PropertyAddressName,
+                                Lat = item.Latitude,
+                                Lng = item.Longitude
+                            });
+                        }
                     }
                 }
+                catch { }
             };
 
             dynamic customProperties = listings.Select(x => new
@@ -548,7 +552,7 @@ namespace CustomRegionPOC.Service
             List<List<Property>> property = new List<List<Property>>();
             try
             {
-                foreach(var chunkPoints in  points.ChunkBy(10))
+                foreach (var chunkPoints in points.ChunkBy(10))
                 {
                     var cts = new CancellationTokenSource();
                     var po = new ParallelOptions();
