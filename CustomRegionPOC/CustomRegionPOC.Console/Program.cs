@@ -13,6 +13,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using Amazon.DynamoDBv2.Model;
 using CustomRegionPOC.Common.Extension;
 using Amazon.DynamoDBv2;
+using System.Diagnostics;
 
 namespace CustomRegionPOC.Console
 {
@@ -40,21 +41,42 @@ namespace CustomRegionPOC.Console
             //migrate(Directory.GetCurrentDirectory() + "/AreasFinal.csv", Directory.GetCurrentDirectory() + "/Properties.csv", Directory.GetCurrentDirectory() + "/PropertyAddresses.csv");
 
 
-            getMetrics();
+            getMetrics("20943", "", "", "", "", 1000);
 
         }
 
-        public static void getMetrics()
+        public static void getMetrics(string id, string propertyType, string priceRange, string beds, string baths, int rowsLimit)
         {
-            string EncodedPolygon = "YXtfbUZmfHx1TXRDWGhDSGpLU0pBaFNpQmZAQkhBfkBLVkNWQ3ZEZ0FgRGFAQkF8RFBqQ1ZqQ2JAfEFoQHZBfEB6RHpDdEBHfkBTXEV6QF1GQ3JAcUB8QnVBaEFhQX5AeUBSUWRBfUF0Q3VEdEljTWpJa0xwQ2dEYkNvQWRBcUBiRH1BekFXbEJVYkNPeEBPWkVuQElBYUBBVU1hSUZ3QlRhQmBAb0JUdUFSfUBMZ0BaYUFeeUB+QF9CaEFlQWpEbUN+QW9BZkBtQFZhQHRAaUJuQHdCSG9AfkB5RGBBbUFfQFljQFNTTWNAaUBzQXlBVURda0BTY0BTdUBJcUBDX0BAX0FCYUBSX0FQZ0B2QGVCVl9BSG9ARG9AQXVAQW1AXWlDR2NCQH1CRnFCdkBvRmJBX0NyQmVGckRrSnhAX0JgQV9CYER7RXBEbUZiRWVHakJxQ2JEWmhOdEFiTGhBdEBIekBCXj9wQEduQ2NAdlBvQ2ZIa0FwQ2VAYEVjQG5KY0FlQHNHP1dEaUBSd0BYZUBuQntBWk1qQEtkQEBsQExuQFp4QGJAWkpiQEpmQEBiQENgQEt+QXNAckFLZkA/YkJ5Q0pTaEJ9Q35Ae0FoRnFJP3NFYkVPbEBlQERlQHJAT1ljQENDbU1jUmNMfU9rRWVHd0FrQmFHX0p3Q2dGeUBxQWlAX0F5QGdBcUBnQWFAaUBlQ2tEZ0JlQ3dBb0J9QmFEX0FvQW1Dd0RzRGVGbUFlQndAYUFHR2FAaUBTYUBnQXlBaUNvRFdlQHNAfUB7QGtBY0BtQFFVYUdpSVtfQF1lQEtNZUBvQG9BZUJNVXNCdUNrRH1FUVtTVXdAY0FHRWVAbUBfQG9AaUNvRHVDZERIXktwQGdBakNhRGBCckFwREhWdkpfRVJwQUZsQEJmQVV4Q1toQ0N0QEdeUWhDcUBqR1l6QmFAbENJYkFFfkFYYklOfkBMWF9BbEBDdkBFWENOT3pAWnBEeER6QGFAfkF8QGhCY0FiQHJAeEFfQG5AbUF2QmNAeEBtQXRCX0dgQHdCY0B1QmNAd0NmRGNGXk9Cb0I/e0M/a0poQH5Ad0dWcUB2QmVrQHJBeVFUZ0ZAVXFCUHVEWmVEWHNEWn1CUHtDWGNFYkBvRF5rQlppQVZbSF9DfkBBY0Z3QlRPP2NEXGFEWkx+QmNEXnFHakBKckJjRGpCSU5iQHBFaUBScUBrRkNNdUFjSEFBZ0hnV2lKeUhiQmRJekBkRW1EWnFDVG1EWllGfkBqVGRAbEpjQ2BAY0NYe0JYe0RMZ0NEaUNIeUNESGBHR2xDc0BCeUFSXUR5Q1pfQ1J9QFZfREV7Q1BFeUBBaUFEY0JBd0NDZ0U/cUFDZ0RNaUNPZ0FRaUF5QHVDZUB1QWtAbUFlQG9Ab0F3QVlfQGFAeUBPa0BLXUVZRXdBZ0J1S31Bc0hfQGNCU2FBaURGcURAcVNhSEx5QUB5QmlAeUpPc0JvQXpAeUBqQHdBdkFdVFtaXFBGQkpSfEB8QkR+QEVsQFtgQGNAXlleW2xAU2pAQ2xAR1JnQWRBaUByQUdGU0RJRV9AQlNBZ0FqQEtQRVhSfkBMWmpAZEBgQFRqQnBARkZKZEA/TkFOS2hAZ0ByQFlSUUJTP2tAT1FDSz9VRD9GSmJAQE5DVFFeVUpFRlc/XUhnQGBAQ0hZZEBLVkV4QFN0QFVaR0JFSkdEbUBMeUBca0BkQENGQ3JAUWhBWW5AZ0B4Qm1BfkNlQW5BUXBBQ0JDS0VAQUJDZkBGXkBIQXZAP0pESkFMRURFR3FAakNTYEBrQGRBZ0ByQFFSYUBcV0xVQE1FYUJ7QXdAY0BxQFdvQmVAU0JZUElKRUhVdkE/ckNBSEtYT1JZUGtDYkFPVkFOTGJAVHhBT25AR0BLUG1AdkJzQHZBQUZETj9GRz9HS09kQF9AeEBnQHhATUxTREU/fUBPTUJVUEtMUWBAQFZLWmFAXF9BVkc/Z0BRWT9LTkVURnRBQ1RNSF1Ea0BBY0BJT0JHQk1ST25AY0BsQUdIfUBQc0BQVUhNSkVAa0BwQElOR2BAQnRAQVJNYkBZZkBbTmVBSmlARWdATU1YU2hAQ0ZCYEVsTGtDaEFfQHhFbUJ2Q2FBcEFpQGJFfUFhQHJCb0B4Q2lBdkNzRHhIX0B+QVV2QVNkQ010QVBmRE5qQVJsQVZ8QFp6QGhAakFsQHJBTFZ2QWZCakNuRnZBckdeekVMdENAbkFIZkNiQHRGaEBySV1+Q3RAclR0QGpGYkNmT3xAYEd+QHhGbEB2Rl50R3JAYEpCaGdBRWZFP2pESWBDSHBDYEJ+RGhFdkV2QGRAbkd6RGJEcEJuTXJHcEZsQmRCYEFkQn5AcEVkQnREaEN6Q2JDbkNgQnhDYEJqR2pCdEBKckFW";
-            
-            
-            string EncodedTiles = "X29tc3taX2dfX2lkQF9pYkU/X2liRT9faWJFP358aFFfaWJFX2liRT9faWJFP19pYkU/X2liRT9+ZmxXX2liRV9pYkU/X2liRT9faWJFP358aFFfaWJFX2liRT9faWJFP19pYkU/fmhiRV9pYkVfaWJFP35oYkVfaWJF";
+            Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+            keyConditions.Add("AreaID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(id) } });
 
-        
-        
-        
-        
+            Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
+
+            if (!string.IsNullOrEmpty(beds))
+            {
+                queryFilter.Add("Beds", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = beds } } });
+            }
+            if (!string.IsNullOrEmpty(baths))
+            {
+                queryFilter.Add("BathsFull", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = baths } } });
+            }
+
+            var request = new QueryRequest
+            {
+                TableName = regionServiceInstance.propertyTableName,
+                ReturnConsumedCapacity = "TOTAL",
+                Limit = rowsLimit,
+                IndexName = "AreaIDIndex",
+                KeyConditions = keyConditions,
+                QueryFilter = queryFilter,
+                AttributesToGet = new List<string> { "PropertyID", "Latitude", "Longitude", "PropertyAddressName" },
+                Select = "SPECIFIC_ATTRIBUTES"
+
+            };
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            QueryResponse response = regionServiceInstance.dynamoDBClient.QueryAsync(request).Result;
+            stopwatch.Stop();
+            System.Console.WriteLine(stopwatch.ElapsedMilliseconds);
         }
 
         public static void migrate(string areasPath, string propertiesPath, string propertyAddressPath)

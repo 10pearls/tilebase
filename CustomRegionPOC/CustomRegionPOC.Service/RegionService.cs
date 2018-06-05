@@ -29,7 +29,7 @@ namespace CustomRegionPOC.Service
         public string propertyTableName = "tile_property_v2";
 
         private BasicAWSCredentials credentials;
-        private AmazonDynamoDBClient dynamoDBClient;
+        public AmazonDynamoDBClient dynamoDBClient;
         private string tilebaseURL;
         private string tilebaseURLWithRasterize;
         public DynamoDBContext context;
