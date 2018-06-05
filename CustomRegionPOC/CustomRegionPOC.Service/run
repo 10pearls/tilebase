@@ -1,0 +1,8 @@
+#!/bin/bash
+
+docker rm --force $(docker ps -aq --filter name=tilebase)
+
+git pull origin
+
+docker build --rm -t tilebase .
+docker run -dp 80:80 --name tilebase tilebase
