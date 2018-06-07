@@ -552,7 +552,7 @@ namespace CustomRegionPOC.Service
             List<List<Property>> property = new List<List<Property>>();
             try
             {
-                foreach (var chunkPoints in points.ChunkBy(10))
+                Parallel.ForEach(points.ChunkBy(10), chunkPoints =>
                 {
                     var cts = new CancellationTokenSource();
                     var po = new ParallelOptions();
@@ -632,7 +632,7 @@ namespace CustomRegionPOC.Service
                             ConsumedCapacityCount += responseObj.ConsumedCapacityCount;
                         }
                     });
-                }
+                });
             }
             catch (Exception ex)
             {
