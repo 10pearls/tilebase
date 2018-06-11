@@ -19,6 +19,9 @@ using System.Net;
 using System.IO;
 using CustomRegionPOC.Common.Helper;
 using CustomRegionPOC.Common.Extension;
+using Amazon.Lambda;
+using Amazon.Lambda.Model;
+using Newtonsoft.Json;
 
 namespace CustomRegionPOC.Service
 {
@@ -27,17 +30,22 @@ namespace CustomRegionPOC.Service
         public string areaTableName = "tile_area_v2";
         public string areaMasterTableName = "tile_area_master_v2";
         public string propertyTableName = "tile_property_v2";
+        public string RasterizeLambdaName = "rasterizer";
 
         private BasicAWSCredentials credentials;
         public AmazonDynamoDBClient dynamoDBClient;
+        public AmazonLambdaClient lambdaClient;
         private string tilebaseURL;
         private string tilebaseURLWithRasterize;
         public DynamoDBContext context;
 
         public RegionService(IConfiguration configuration)
         {
+            RegionEndpoint regionEndpoint = RegionEndpoint.USEast1;
+
+            this.lambdaClient = new AmazonLambdaClient(configuration["AWS:AccessKey"], configuration["AWS:SecretKey"], regionEndpoint);
             this.credentials = new BasicAWSCredentials(configuration["AWS:AccessKey"], configuration["AWS:SecretKey"]);
-            this.dynamoDBClient = new AmazonDynamoDBClient(credentials, RegionEndpoint.USEast1);
+            this.dynamoDBClient = new AmazonDynamoDBClient(credentials, regionEndpoint);
 
             CreateTempTable("tile_listing_region_v2", null, null, null).Wait();
 
@@ -392,6 +400,7 @@ namespace CustomRegionPOC.Service
                     postData += "}";
 
                     string responseFromServer = this.PostData(tilebaseURLWithRasterize, postData);
+                    //string responseFromServer = this.CallRasterizationLambda(postData);
 
                     tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
                 }
@@ -401,6 +410,7 @@ namespace CustomRegionPOC.Service
                     {
                         string postData = JSONHelper.GetString(tilesCoordinate);
                         string responseFromServer = this.PostData(tilebaseURL, postData);
+                        //string responseFromServer = this.CallRasterizationLambda(postData);
 
                         lock (lockObj)
                         {
@@ -416,6 +426,26 @@ namespace CustomRegionPOC.Service
             {
                 throw ex;
             }
+        }
+
+        public string CallRasterizationLambda(string postData)
+        {
+            postData = @"{""resource"": ""/areas"",""body"": " + postData + "}";
+
+            InvokeRequest ir = new InvokeRequest
+            {
+                FunctionName = this.RasterizeLambdaName,
+                InvocationType = InvocationType.RequestResponse,
+                Payload = postData
+            };
+
+            InvokeResponse response = lambdaClient.InvokeAsync(ir).Result;
+
+            var sr = new StreamReader(response.Payload);
+            JsonReader reader = new JsonTextReader(sr);
+
+            var serilizer = new JsonSerializer();
+            return serilizer.Deserialize(reader).ToString();
         }
 
         public string PostData(string url, string postData)
@@ -552,87 +582,65 @@ namespace CustomRegionPOC.Service
             List<List<Property>> property = new List<List<Property>>();
             try
             {
-                Parallel.ForEach(points.ChunkBy(10), chunkPoints =>
+                foreach (var obj in points)
                 {
-                    var cts = new CancellationTokenSource();
-                    var po = new ParallelOptions();
-                    po.CancellationToken = cts.Token;
-                    AmazonDynamoDBClient client = new AmazonDynamoDBClient(this.credentials, RegionEndpoint.USEast1);
+                    string currentTile = GetTileStr(obj.X, obj.Y);
 
-                    List<string> processedTiles = new List<string>();
+                    Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
+                    keyConditions.Add("Tile", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(currentTile) } });
 
-                    Parallel.ForEach(chunkPoints, po, obj =>
+                    Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
+
+                    if (!string.IsNullOrEmpty(beds))
                     {
-                        string currentTile = GetTileStr(obj.X, obj.Y);
+                        queryFilter.Add("Beds", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = beds } } });
+                    }
+                    if (!string.IsNullOrEmpty(bathsFull))
+                    {
+                        queryFilter.Add("BathsFull", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsFull } } });
+                    }
+                    if (!string.IsNullOrEmpty(bathsHalf))
+                    {
+                        queryFilter.Add("BathsHalf", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsHalf } } });
+                    }
+                    if (!string.IsNullOrEmpty(propertyAddressId))
+                    {
+                        queryFilter.Add("PropertyAddressID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = propertyAddressId } } });
+                    }
+                    if (!string.IsNullOrEmpty(averageValue))
+                    {
+                        queryFilter.Add("AverageValue", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageValue } } });
+                    }
+                    if (!string.IsNullOrEmpty(averageRent))
+                    {
+                        queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
+                    }
 
-                        Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
-                        keyConditions.Add("Tile", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(currentTile) } });
+                    var request = new QueryRequest
+                    {
+                        TableName = propertyTableName,
+                        ReturnConsumedCapacity = "TOTAL",
+                        KeyConditions = keyConditions,
+                        QueryFilter = queryFilter,
+                        AttributesToGet = new List<string> { "Latitude", "Longitude", "Tile", "PropertyAddressName" },
+                        Select = "SPECIFIC_ATTRIBUTES"
 
-                        Dictionary<string, Condition> queryFilter = new Dictionary<string, Condition>();
+                    };
+                    try
+                    {
+                        QueryResponse response = this.dynamoDBClient.QueryAsync(request).Result;
 
-                        if (!string.IsNullOrEmpty(beds))
-                        {
-                            queryFilter.Add("Beds", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = beds } } });
-                        }
-                        if (!string.IsNullOrEmpty(bathsFull))
-                        {
-                            queryFilter.Add("BathsFull", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsFull } } });
-                        }
-                        if (!string.IsNullOrEmpty(bathsHalf))
-                        {
-                            queryFilter.Add("BathsHalf", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = bathsHalf } } });
-                        }
-                        if (!string.IsNullOrEmpty(propertyAddressId))
-                        {
-                            queryFilter.Add("PropertyAddressID", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = propertyAddressId } } });
-                        }
-                        if (!string.IsNullOrEmpty(averageValue))
-                        {
-                            queryFilter.Add("AverageValue", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageValue } } });
-                        }
-                        if (!string.IsNullOrEmpty(averageRent))
-                        {
-                            queryFilter.Add("AverageRent", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue() { S = averageRent } } });
-                        }
+                        TotalRecordCount += response.Count;
+                        ScanCount += response.ScannedCount;
+                        ConsumedCapacityCount += response.ConsumedCapacity.CapacityUnits;
 
-                        var request = new QueryRequest
-                        {
-                            TableName = propertyTableName,
-                            ReturnConsumedCapacity = "TOTAL",
-                            KeyConditions = keyConditions,
-                            QueryFilter = queryFilter,
-                            AttributesToGet = new List<string> { "Latitude", "Longitude", "Tile", "PropertyAddressName" },
-                            Select = "SPECIFIC_ATTRIBUTES"
-
-                        };
-                        try
-                        {
-                            QueryResponse response = client.QueryAsync(request).Result;
-
-                            TotalRecordCount += response.Count;
-                            ScanCount += response.ScannedCount;
-                            ConsumedCapacityCount += response.ConsumedCapacity.CapacityUnits;
-
-                            property.Add(Property.ConvertToEntity(response.Items));
-                            processedTiles.Add(currentTile);
-                        }
-                        catch (Exception ex)
-                        {
-                            cts.Cancel();
-                            var newPoints = chunkPoints.Where(x => GetTileStr(x.X, x.Y) != currentTile).Where(x => !processedTiles.Any(y => y == GetTileStr(x.X, x.Y))).ToList();
-
-                            dynamic responseObj = this.getRegionByProperty(newPoints, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
-                            foreach (dynamic tempObj in responseObj.Properties)
-                            {
-                                property.Add(tempObj);
-                            }
-
-                            TotalRecordCount += responseObj.TotalRecordCount;
-                            ScanCount += responseObj.ScanCount;
-                            ConsumedCapacityCount += responseObj.ConsumedCapacityCount;
-                        }
-                    });
-                });
+                        property.Add(Property.ConvertToEntity(response.Items));
+                    }
+                    catch (Exception ex)
+                    {
+                        throw ex;
+                    }
+                }
             }
             catch (Exception ex)
             {

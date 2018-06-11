@@ -14,5 +14,5 @@
     "template"      : "serverless.template",
     "template-parameters" : "\"ShouldCreateBucket\"=\"true\";\"BucketName\"=\"\"",
     "s3-bucket"           : "10p-billing-bucket",
-    "stack-name"          : "tilebase-serverless-stack-dynamo"
+    "stack-name"          : "tilebase-serverless-stack-dynamo-Parallel"
 }
