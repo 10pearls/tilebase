@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="NetTopologySuite" Version="1.0.0" />
     <PackageReference Include="AWSSDK.Lambda" Version="3.3.13.3" />
     <PackageReference Include="IronPython" Version="2.7.8.1" />
   </ItemGroup>

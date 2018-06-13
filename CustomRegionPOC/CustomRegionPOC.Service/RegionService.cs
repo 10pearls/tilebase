@@ -22,6 +22,7 @@ using CustomRegionPOC.Common.Extension;
 using Amazon.Lambda;
 using Amazon.Lambda.Model;
 using Newtonsoft.Json;
+using NetTopologySuite.IO;
 
 namespace CustomRegionPOC.Service
 {
@@ -61,7 +62,7 @@ namespace CustomRegionPOC.Service
             region.AreaID = areaId;
             region.Points = GooglePoints.Decode(region.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList();
             region.EncodedPolygon = null;
-            List<Tile> tiles = this.GetCoordinateTile(region.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
+            List<Tile> tiles = this.GetCoordinateTile(region.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true).tiles;
 
             AreaMaster areaMaster = new AreaMaster()
             {
@@ -99,7 +100,7 @@ namespace CustomRegionPOC.Service
                 Y = (float)listing.Lng
             });
 
-            List<Tile> coordinates = GetCoordinateTile(points, false);
+            List<Tile> coordinates = GetCoordinateTile(points, false).tiles;
 
             Parallel.ForEach(coordinates, coordinate =>
             {
@@ -149,7 +150,9 @@ namespace CustomRegionPOC.Service
                 }
                 else
                 {
-                    tiles = this.GetCoordinateTile(new List<PointF>(), true, boundingBox, 14, encodedTiles);
+                    RasterizeObject rasterizeObject = this.GetCoordinateTile(new List<PointF>(), true, boundingBox, 14, encodedTiles);
+                    tiles = rasterizeObject.tiles;
+                    area.Points = new WKTReader().Read(rasterizeObject.intersectionPolygon).Coordinates.Select(x => new LocationPoint(x.X, x.Y)).ToList();
                 }
             }
             else
@@ -159,7 +162,9 @@ namespace CustomRegionPOC.Service
                     area.Points = GooglePoints.Decode(area.EncodedPolygon).Select(x => new LocationPoint(x.Latitude, x.Longitude)).ToList();
                 }
 
-                tiles = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true, boundingBox);
+                RasterizeObject rasterizeObject = this.GetCoordinateTile(area.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true, boundingBox);
+                tiles = rasterizeObject.tiles;
+                area.Points = new WKTReader().Read(rasterizeObject.intersectionPolygon).Coordinates.Select(x => new LocationPoint(x.X, x.Y)).ToList();
             }
             DateTime endTimeLambda = DateTime.Now;
 
@@ -171,12 +176,6 @@ namespace CustomRegionPOC.Service
             DateTime startDate = DateTime.Now;
             dynamic listing = getRegionByProperty(tiles, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
             DateTime endDate = DateTime.Now;
-
-            List<LocationPoint> boundingBoxLocationPoints = new List<LocationPoint>();
-            if (boundingBox != null && boundingBox.Count > 0)
-            {
-                boundingBoxLocationPoints = boundingBox.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.X), Lng = Convert.ToDecimal(x.Y) }).ToList();
-            }
 
             foreach (var item in listing.CompleteProperties)
             {
@@ -197,16 +196,12 @@ namespace CustomRegionPOC.Service
                 {
                     if (item != null && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude))
                     {
-                        if ((boundingBox == null || boundingBox.Count() == 0) ||
-                            (boundingBox != null && boundingBox.Count() > 0 && this.isPointInPolygon(boundingBoxLocationPoints, item.Latitude, item.Longitude)))
+                        listings.Add(new Listing
                         {
-                            listings.Add(new Listing
-                            {
-                                Name = item.PropertyAddressName,
-                                Lat = item.Latitude,
-                                Lng = item.Longitude
-                            });
-                        }
+                            Name = item.PropertyAddressName,
+                            Lat = item.Latitude,
+                            Lng = item.Longitude
+                        });
                     }
                 }));
             }
@@ -378,7 +373,7 @@ namespace CustomRegionPOC.Service
             });
         }
 
-        public List<Tile> GetCoordinateTile(List<PointF> points, bool withRasterize, List<PointF> boundingBox = null, int zoomlevel = 14, string encodedTiles = null)
+        public RasterizeObject GetCoordinateTile(List<PointF> points, bool withRasterize, List<PointF> boundingBox = null, int zoomlevel = 14, string encodedTiles = null)
         {
             List<Tile> tilesCoordinates = new List<Tile>();
 
@@ -394,7 +389,8 @@ namespace CustomRegionPOC.Service
 
             try
             {
-                List<Tile> tiles = new List<Tile>();
+                RasterizeObject rasterizeObject = new RasterizeObject();
+                rasterizeObject.tiles = new List<Tile>();
                 object lockObj = new object();
 
                 if (withRasterize)
@@ -421,7 +417,7 @@ namespace CustomRegionPOC.Service
                     string responseFromServer = this.PostData(tilebaseURLWithRasterize, postData);
                     //string responseFromServer = this.CallRasterizationLambda(postData);
 
-                    tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
+                    return JSONHelper.GetObject<RasterizeObject>(responseFromServer);
                 }
                 else
                 {
@@ -433,12 +429,12 @@ namespace CustomRegionPOC.Service
 
                         lock (lockObj)
                         {
-                            tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
+                            rasterizeObject.tiles.AddRange(JSONHelper.GetObject<List<Tile>>(responseFromServer));
                         }
                     });
                 }
 
-                return tiles;
+                return rasterizeObject;
 
             }
             catch (Exception ex)
@@ -548,7 +544,7 @@ namespace CustomRegionPOC.Service
                 Y = (float)lng
             });
 
-            List<Tile> coordinates = GetCoordinateTile(points, false);
+            List<Tile> coordinates = GetCoordinateTile(points, false).tiles;
 
             return await getRegionByArea(coordinates.Select(x => new Point((int)x.Row, (int)x.Column)).ToList());
         }

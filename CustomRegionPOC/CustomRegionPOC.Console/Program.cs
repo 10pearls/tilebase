@@ -144,7 +144,7 @@ namespace CustomRegionPOC.Console
 
                 obj.Points = tempPoints;
 
-                List<Tile> rasterizePoints = regionServiceInstance.GetCoordinateTile(obj.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true);
+                List<Tile> rasterizePoints = regionServiceInstance.GetCoordinateTile(obj.Points.Select(x => new PointF((float)x.Lat, (float)x.Lng)).ToList(), true).tiles;
 
                 AreaMaster areaMasterObj = new AreaMaster();
                 areaMasterObj.AreaID = obj.AreaID;
@@ -358,7 +358,7 @@ namespace CustomRegionPOC.Console
                                     };
 
             List<PointF> points = propertyMigration.Select(x => new PointF((float)Convert.ToDecimal(x.Latitude), (float)Convert.ToDecimal(x.Longitude))).ToList();
-            List<Tile> tiles = regionServiceInstance.GetCoordinateTile(points, false);
+            List<Tile> tiles = regionServiceInstance.GetCoordinateTile(points, false).tiles;
 
             Projection projection = new Projection() { ProjectionType = "INCLUDE" };
 
