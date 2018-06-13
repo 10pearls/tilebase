@@ -169,18 +169,36 @@ namespace CustomRegionPOC.Service
             //}
 
             DateTime startDate = DateTime.Now;
-            dynamic listing = getRegionByProperty(tiles.Select(x => new Point((int)x.Row, (int)x.Column)).ToList(), beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
+            dynamic listing = getRegionByProperty(tiles, beds, bathsFull, bathsHalf, propertyAddressId, averageValue, averageRent).Result;
             DateTime endDate = DateTime.Now;
 
-            foreach (var item in listing.Properties)
+            List<LocationPoint> boundingBoxLocationPoints = new List<LocationPoint>();
+            if (boundingBox != null && boundingBox.Count > 0)
             {
-                try
+                boundingBoxLocationPoints = boundingBox.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.X), Lng = Convert.ToDecimal(x.Y) }).ToList();
+            }
+
+            foreach (var item in listing.CompleteProperties)
+            {
+                if (item != null)
                 {
-                    Tile currentTile = tiles.FirstOrDefault(x => GetTileStr((int)x.Row, (int)x.Column) == item.Tile);
-                    if (!currentTile.IsPartialTile || (currentTile.IsPartialTile && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude)))
+                    listings.Add(new Listing
+                    {
+                        Name = item.PropertyAddressName,
+                        Lat = item.Latitude,
+                        Lng = item.Longitude
+                    });
+                }
+            }
+            List<Task> partialPropertiesTask = new List<Task>();
+            foreach (var item in listing.PartialProperties)
+            {
+                partialPropertiesTask.Add(Task.Factory.StartNew(() =>
+                {
+                    if (item != null && this.isPointInPolygon(area.Points, item.Latitude, item.Longitude))
                     {
                         if ((boundingBox == null || boundingBox.Count() == 0) ||
-                            (boundingBox != null && boundingBox.Count() > 0 && this.isPointInPolygon(boundingBox.Select(x => new LocationPoint() { Lat = Convert.ToDecimal(x.X), Lng = Convert.ToDecimal(x.Y) }).ToList(), item.Latitude, item.Longitude)))
+                            (boundingBox != null && boundingBox.Count() > 0 && this.isPointInPolygon(boundingBoxLocationPoints, item.Latitude, item.Longitude)))
                         {
                             listings.Add(new Listing
                             {
@@ -190,9 +208,10 @@ namespace CustomRegionPOC.Service
                             });
                         }
                     }
-                }
-                catch { }
-            };
+                }));
+            }
+
+            Task.WaitAll(partialPropertiesTask.ToArray());
 
             dynamic customProperties = listings.Select(x => new
             {
@@ -574,17 +593,18 @@ namespace CustomRegionPOC.Service
             return allAreasMaster.SelectMany(x => x).ToList();
         }
 
-        private async Task<dynamic> getRegionByProperty(List<Point> points, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
+        private async Task<dynamic> getRegionByProperty(List<Tile> points, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null)
         {
             int TotalRecordCount = 0;
             int ScanCount = 0;
             double ConsumedCapacityCount = 0;
-            List<List<Property>> property = new List<List<Property>>();
+            List<List<Property>> partialProperty = new List<List<Property>>();
+            List<List<Property>> completeProperty = new List<List<Property>>();
             try
             {
                 foreach (var obj in points)
                 {
-                    string currentTile = GetTileStr(obj.X, obj.Y);
+                    string currentTile = GetTileStr((int)obj.Row, (int)obj.Column);
 
                     Dictionary<string, Condition> keyConditions = new Dictionary<string, Condition>();
                     keyConditions.Add("Tile", new Condition() { ComparisonOperator = "EQ", AttributeValueList = new List<AttributeValue>() { new AttributeValue(currentTile) } });
@@ -634,7 +654,14 @@ namespace CustomRegionPOC.Service
                         ScanCount += response.ScannedCount;
                         ConsumedCapacityCount += response.ConsumedCapacity.CapacityUnits;
 
-                        property.Add(Property.ConvertToEntity(response.Items));
+                        if (obj.IsPartialTile)
+                        {
+                            partialProperty.Add(Property.ConvertToEntity(response.Items));
+                        }
+                        else
+                        {
+                            completeProperty.Add(Property.ConvertToEntity(response.Items));
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -649,7 +676,8 @@ namespace CustomRegionPOC.Service
 
             return new
             {
-                Properties = property.SelectMany(x => x).ToList(),
+                PartialProperties = partialProperty.SelectMany(x => x).ToList(),
+                CompleteProperties = completeProperty.SelectMany(x => x).ToList(),
                 TotalRecordCount,
                 ConsumedCapacityCount,
                 ScanCount
