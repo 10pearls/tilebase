@@ -14,10 +14,10 @@ namespace CustomRegionPOC.Common.Service
 
         Task SaveListing(Listing listing);
 
-        Task<dynamic> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null, string encodedTiles = null);
+        Task<GetListingWrapper> GetListing(Area area, string north = null, string east = null, string south = null, string west = null, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null, string encodedCompletedTiles = null, string encodedPartialTiles = null);
 
         Task<List<AreaMaster>> GetArea();
 
-        Task<dynamic> GetArea(string id, string north, string east, string south, string west, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null);
+        Task<GetAreaListingWrapper> GetArea(string id, string north, string east, string south, string west, string beds = null, string bathsFull = null, string bathsHalf = null, string propertyAddressId = null, string averageValue = null, string averageRent = null);
     }
 }

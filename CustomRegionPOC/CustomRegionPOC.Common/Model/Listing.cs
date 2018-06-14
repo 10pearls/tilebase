@@ -4,14 +4,17 @@ using System.Text;
 
 namespace CustomRegionPOC.Common.Model
 {
-    public class Listing
+    public class ListingMaster
     {
         public decimal Lat { get; set; }
 
         public decimal Lng { get; set; }
 
         public string Name { get; set; }
+    }
 
+    public class Listing : ListingMaster
+    {
         public string Beds { get; set; }
 
         public string BathsFull { get; set; }

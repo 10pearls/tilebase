@@ -19,7 +19,9 @@ namespace CustomRegionPOC.Common.Model
 
         public string EncodedPolygon { get; set; }
 
-        public string EncodedTiles { get; set; }
+        public string EncodedPartialTiles { get; set; }
+
+        public string EncodedCompletedTiles { get; set; }
 
         public bool IsPredefine { get; set; }
 

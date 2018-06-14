@@ -15,6 +15,7 @@ using CustomRegionPOC.Common.Extension;
 using Amazon.DynamoDBv2;
 using System.Diagnostics;
 using System.Text;
+using CustomRegionPOC.Common.Enum;
 
 namespace CustomRegionPOC.Console
 {
@@ -43,7 +44,7 @@ namespace CustomRegionPOC.Console
 
             string csvPath = string.Empty;
 
-            //migrate(Directory.GetCurrentDirectory() + "/AreasFinal.csv", Directory.GetCurrentDirectory() + "/Properties.csv", Directory.GetCurrentDirectory() + "/PropertyAddresses.csv");
+            migrate(Directory.GetCurrentDirectory() + "/AreasFinal.csv", Directory.GetCurrentDirectory() + "/Properties.csv", Directory.GetCurrentDirectory() + "/PropertyAddresses.csv");
 
 
             //getMetrics("20943", "", "", "", "", 1000);
@@ -150,7 +151,8 @@ namespace CustomRegionPOC.Console
                 areaMasterObj.AreaID = obj.AreaID;
                 areaMasterObj.AreaName = obj.AreaName;
                 areaMasterObj.EncodedPolygon = GooglePoints.EncodeBase64(tempPoints.Select(x => new CoordinateEntity(Convert.ToDouble(x.Lat), Convert.ToDouble(x.Lng))));
-                areaMasterObj.EncodedTiles = GooglePoints.EncodeBase64(rasterizePoints.Select(x => new CoordinateEntity(Convert.ToDouble(x.Row), Convert.ToDouble(x.Column))));
+                areaMasterObj.EncodedCompletedTiles = GooglePoints.EncodeBase64(rasterizePoints.Where(x => !x.IsPartialTile).Select(x => new CoordinateEntity(Convert.ToDouble(x.Row), Convert.ToDouble(x.Column))));
+                areaMasterObj.EncodedPartialTiles = GooglePoints.EncodeBase64(rasterizePoints.Where(x => x.IsPartialTile).Select(x => new CoordinateEntity(Convert.ToDouble(x.Row), Convert.ToDouble(x.Column))));
                 areaMasterObj.IsPredefine = true;
                 areaMaster.Add(areaMasterObj);
 

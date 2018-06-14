@@ -27,7 +27,7 @@ namespace CustomRegionPOC.AWSServerlessAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<dynamic> Post([FromBody]Area area)
+        public async Task<GetListingWrapper> Post([FromBody]Area area)
         {
             List<Task> tasks = new List<Task>();
 
@@ -36,7 +36,7 @@ namespace CustomRegionPOC.AWSServerlessAPI.Controllers
                 this.service.Create(area).Wait();
             }));
 
-            dynamic listings = this.service.GetListing(area).Result;
+            GetListingWrapper listings = this.service.GetListing(area).Result;
 
             Task.WaitAll(tasks.ToArray());
 
@@ -52,7 +52,7 @@ namespace CustomRegionPOC.AWSServerlessAPI.Controllers
 
         [HttpPost]
         [Route("GetListings")]
-        public async Task<dynamic> GetListings([FromBody]Area area)
+        public async Task<GetListingWrapper> GetListings([FromBody]Area area)
         {
             string north = Request.Query["north"];
             string east = Request.Query["east"];
@@ -77,7 +77,7 @@ namespace CustomRegionPOC.AWSServerlessAPI.Controllers
 
         [HttpGet]
         [Route("GetArea/{id}")]
-        public async Task<dynamic> GetArea(string id)
+        public async Task<GetAreaListingWrapper> GetArea(string id)
         {
             string north = Request.Query["north"];
             string east = Request.Query["east"];

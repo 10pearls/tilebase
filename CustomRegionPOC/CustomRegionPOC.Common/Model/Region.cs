@@ -1,4 +1,5 @@
 ﻿using Amazon.DynamoDBv2.DataModel;
+using CustomRegionPOC.Common.Enum;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -25,12 +26,5 @@ namespace CustomRegionPOC.Common.Model
         public List<LocationPoint> Points { get; set; }
 
         public List<Tile> Tiles { get; set; }
-    }
-
-    public enum RecordType
-    {
-        Area = 1,
-        Listing = 2,
-        Property = 3,
     }
 }
